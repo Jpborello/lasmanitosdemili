@@ -630,6 +630,17 @@ export default function Landing() {
             </a>
           </div>
           <p>© {new Date().getFullYear()} <a href="/admin/login" style={{ color: 'inherit', textDecoration: 'none', cursor: 'default' }}>Mili Nails</a>. Creado con mucho <Heart size={12} style={{ display: 'inline', color: 'var(--accent-rose)', fill: 'var(--accent-rose)' }} /> para hacerte brillar.</p>
+          <p style={{ marginTop: '8px', fontSize: '0.8rem', opacity: 0.8 }}>
+            Proyecto creado por{' '}
+            <a 
+              href="https://www.neo-core-sys.com.ar/" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              style={{ color: 'var(--accent-gold)', fontWeight: 600, textDecoration: 'none' }}
+            >
+              neo core sys
+            </a>
+          </p>
         </div>
       </footer>
     </div>
