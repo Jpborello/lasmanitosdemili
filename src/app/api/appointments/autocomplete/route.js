@@ -13,14 +13,16 @@ export async function GET(request) {
 
     const db = await getDb();
     
-    // Buscar la última cita creada por este número de teléfono
+    const cleanPhone = phone.replace(/\D/g, '');
+    
+    // Buscar la última cita creada por este número de teléfono (normalizando para ignorar espacios, guiones, etc.)
     const result = await db.execute({
       sql: `SELECT client_name, client_email 
             FROM appointments 
-            WHERE client_phone = ? 
+            WHERE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(client_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') = ? 
             ORDER BY created_at DESC 
             LIMIT 1`,
-      args: [phone],
+      args: [cleanPhone],
     });
 
     if (result.rows.length > 0) {
