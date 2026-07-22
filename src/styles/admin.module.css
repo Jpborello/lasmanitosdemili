@@ -417,3 +417,18 @@
   background-color: #cd7f32 !important; /* Bronze */
   color: #553311 !important;
 }
+
+@media (max-width: 600px) {
+  .dashboardHeader {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  .adminTitle {
+    font-size: 1.5rem;
+  }
+  .logoutBtn {
+    width: 100%;
+    text-align: center;
+  }
+}

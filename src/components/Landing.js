@@ -303,7 +303,7 @@ export default function Landing() {
             <a href="#galeria" className={styles.navLink}>Trabajos</a>
             <a href="#turnos" className={styles.navLink}>Reservar</a>
             {isAdmin && (
-              <a href="/admin" className={styles.navAdminLink}>Panel de Control</a>
+              <a href="/admin" className={styles.navAdminLink}>Admin</a>
             )}
           </nav>
         </div>

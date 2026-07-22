@@ -369,7 +369,7 @@ export default function AdminDashboard() {
       {/* Header */}
       <header className={styles.dashboardHeader}>
         <div className={styles.adminTitle}>
-          Mili Nails <span>Panel de Control</span>
+          Las Manitos de Mili <span>Panel de Control</span>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <button type="button" className={styles.logoutBtn} onClick={handleLogout}>
