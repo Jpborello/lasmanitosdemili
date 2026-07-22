@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, Clock, Phone, Trash2, LogOut, RefreshCw, Star, MessageSquare, Award, DollarSign, Users, TrendingUp, Settings } from 'lucide-react';
+import { Calendar, Clock, Phone, Trash2, LogOut, RefreshCw, Star, MessageSquare, Award, DollarSign, Users, TrendingUp, Settings, ExternalLink } from 'lucide-react';
 import styles from '@/styles/admin.module.css';
 
 // Lista de servicios de manicuría para traducir IDs a nombres amigables
@@ -372,6 +372,9 @@ export default function AdminDashboard() {
           Las Manitos de Mili <span>Panel de Control</span>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <a href="/" className={styles.webBtn}>
+            <ExternalLink size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} /> Volver a la Web
+          </a>
           <button type="button" className={styles.logoutBtn} onClick={handleLogout}>
             <LogOut size={16} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} /> Salir
           </button>

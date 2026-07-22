@@ -69,6 +69,27 @@
   color: var(--white);
 }
 
+.webBtn {
+  background: transparent;
+  border: 1px solid var(--accent-gold);
+  color: var(--accent-gold);
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: var(--transition-smooth);
+}
+
+.webBtn:hover {
+  background-color: var(--accent-gold);
+  color: var(--white);
+}
+
 /* Grid layout */
 .dashboardGrid {
   display: grid;
