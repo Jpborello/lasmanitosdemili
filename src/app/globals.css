@@ -1,0 +1,159 @@
+/* Variables de diseño premium - Las Manitos de Mili */
+:root {
+  /* Paleta de colores */
+  --bg-primary: #fdfaf6;       /* Crema muy suave */
+  --bg-secondary: #f6eee5;     /* Lino suave / café con leche claro */
+  --accent-rose: #dcae96;      /* Rosa viejo elegante */
+  --accent-gold: #c5a880;      /* Champagne / Oro suave */
+  --text-dark: #2c2220;        /* Espresso oscuro (evita el negro puro) */
+  --text-muted: #6e5e5b;       /* Café medio para textos descriptivos */
+  --white: #ffffff;
+  --success: #88a783;          /* Verde oliva suave */
+  --error: #cb7870;            /* Terracota suave */
+  --border-color: rgba(197, 168, 128, 0.25); /* Bordes oro semitransparentes */
+
+  /* Tipografías (cargadas vía Next.js font) */
+  --font-serif: var(--font-playfair), Georgia, serif;
+  --font-sans: var(--font-montserrat), system-ui, sans-serif;
+
+  /* Sombras y bordes */
+  --shadow-soft: 0 8px 30px rgba(44, 34, 32, 0.05);
+  --shadow-medium: 0 12px 40px rgba(44, 34, 32, 0.08);
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Reset de estilos */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background-color: var(--bg-primary);
+  color: var(--text-dark);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  min-height: 100vh;
+  scroll-behavior: smooth;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  color: var(--text-dark);
+  letter-spacing: 0.02em;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* Clases de Utilidad Comunes */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Efecto Glassmorphism */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: var(--shadow-soft);
+  border-radius: var(--radius-md);
+}
+
+.glass-card-gold {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-soft);
+  border-radius: var(--radius-md);
+}
+
+/* Botones Premium */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: var(--text-dark);
+  color: var(--white);
+  border: none;
+  padding: 14px 28px;
+  border-radius: 50px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(44, 34, 32, 0.15);
+  transition: var(--transition-smooth);
+}
+
+.btn-primary:hover {
+  background-color: var(--accent-rose);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(220, 174, 150, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: transparent;
+  color: var(--text-dark);
+  border: 1px solid var(--text-dark);
+  padding: 14px 28px;
+  border-radius: 50px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-secondary:hover {
+  background-color: rgba(44, 34, 32, 0.05);
+  transform: translateY(-2px);
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
