@@ -186,12 +186,21 @@ export default function Landing() {
     }
   };
 
-  return (
-    <div className="animate-fade-in">
-      {/* Overlay de Bienvenida / Registro Obligatorio */}
-      {isFirstTime && (
-        <div className={styles.welcomeOverlay}>
-          <div className={`${styles.welcomeCard} glass-card-gold animate-scale-in`}>
+  if (isFirstTime) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)', padding: '20px' }} className="animate-fade-in">
+        {/* Simple Header */}
+        <header className={styles.header} style={{ borderBottom: 'none', marginBottom: '20px' }}>
+          <div className="container" style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+            <div className={styles.logoContainer}>
+              <img src="/logo.jpg" alt="Las Manitos de Mili" className={styles.logoImg} />
+            </div>
+          </div>
+        </header>
+
+        {/* Center welcome card */}
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px 0' }}>
+          <div className={`${styles.welcomeCard} glass-card-gold animate-scale-in`} style={{ boxShadow: 'var(--shadow-soft)', position: 'relative' }}>
             <div className={styles.welcomeSubtitle}>Las Manitos de Mili</div>
             <h2 className={styles.welcomeTitle}>
               ¡Te damos la <span>Bienvenida</span>!
@@ -274,7 +283,12 @@ export default function Landing() {
             </form>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="animate-fade-in">
 
       {/* Header */}
       <header className={styles.header}>
