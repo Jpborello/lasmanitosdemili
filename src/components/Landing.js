@@ -629,7 +629,7 @@ export default function Landing() {
               @las_manitosde_mili
             </a>
           </div>
-          <p>© {new Date().getFullYear()} Mili Nails. Creado con mucho <Heart size={12} style={{ display: 'inline', color: 'var(--accent-rose)', fill: 'var(--accent-rose)' }} /> para hacerte brillar.</p>
+          <p>© {new Date().getFullYear()} <a href="/admin/login" style={{ color: 'inherit', textDecoration: 'none', cursor: 'default' }}>Mili Nails</a>. Creado con mucho <Heart size={12} style={{ display: 'inline', color: 'var(--accent-rose)', fill: 'var(--accent-rose)' }} /> para hacerte brillar.</p>
         </div>
       </footer>
     </div>
