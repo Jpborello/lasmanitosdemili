@@ -211,19 +211,6 @@ export default function Landing() {
             
             <form className={styles.welcomeForm} onSubmit={handleRegisterSubmit}>
               <div className={styles.formGroupRow}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)' }}>Nombre Completo *</label>
-                <input
-                  type="text"
-                  placeholder="Ej. María Gómez"
-                  required
-                  className={styles.welcomeInput}
-                  value={regName}
-                  onChange={(e) => setRegName(e.target.value)}
-                  disabled={regSubmitting}
-                />
-              </div>
-
-              <div className={styles.formGroupRow}>
                 <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)' }}>Teléfono Celular *</label>
                 <input
                   type="tel"
@@ -232,6 +219,19 @@ export default function Landing() {
                   className={styles.welcomeInput}
                   value={regPhone}
                   onChange={(e) => setRegPhone(e.target.value)}
+                  disabled={regSubmitting}
+                />
+              </div>
+
+              <div className={styles.formGroupRow}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)' }}>Nombre Completo *</label>
+                <input
+                  type="text"
+                  placeholder="Ej. María Gómez"
+                  required
+                  className={styles.welcomeInput}
+                  value={regName}
+                  onChange={(e) => setRegName(e.target.value)}
                   disabled={regSubmitting}
                 />
               </div>
