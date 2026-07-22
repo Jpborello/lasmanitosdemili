@@ -319,8 +319,8 @@ export default function Landing() {
               Servicio de manicuría de alta calidad, diseñado para cuidar y embellecer tus uñas con técnicas profesionales y productos premium. ¡Reserva tu turno en minutos!
             </p>
             <div className={styles.heroButtons}>
-              <a href="#turnos" className="btn-primary">
-                <Sparkles size={16} /> Reservar Turno
+              <a href="#turnos" className={styles.heroBtnPink}>
+                Reservar Turno
               </a>
               <a href="#servicios" className="btn-secondary">
                 Ver Servicios

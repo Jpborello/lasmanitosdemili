@@ -569,3 +569,31 @@
     font-size: 0.75rem;
   }
 }
+
+.heroBtnPink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffb3c6; /* Rosa pastel notable */
+  color: var(--text-dark);
+  border: none;
+  padding: 14px 28px;
+  border-radius: 50px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(255, 179, 198, 0.35);
+  transition: var(--transition-smooth);
+}
+
+.heroBtnPink:hover {
+  background-color: #ff9ebb; /* Rosa pastel un poco más oscuro al pasar el cursor */
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 158, 187, 0.5);
+}
+
+.heroBtnPink:active {
+  transform: translateY(0);
+}
