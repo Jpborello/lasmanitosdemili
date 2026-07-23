@@ -15,14 +15,20 @@ export async function GET(request) {
     
     const cleanPhone = phone.replace(/\D/g, '');
     
-    // Buscar la última cita creada por este número de teléfono (normalizando para ignorar espacios, guiones, etc.)
+    // Buscar la última cita creada por este número de teléfono (normalizando y comparando los últimos 10 dígitos para ignorar +54, 9, 0, etc.)
     const result = await db.execute({
       sql: `SELECT client_name, client_email 
             FROM appointments 
-            WHERE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(client_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') = ? 
+            WHERE 
+              REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(client_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '') = ?
+              OR (
+                LENGTH(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(client_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', '')) >= 10
+                AND LENGTH(?) >= 10
+                AND SUBSTR(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(client_phone, ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), -10) = SUBSTR(?, -10)
+              )
             ORDER BY created_at DESC 
             LIMIT 1`,
-      args: [cleanPhone],
+      args: [cleanPhone, cleanPhone, cleanPhone],
     });
 
     if (result.rows.length > 0) {

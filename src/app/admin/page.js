@@ -46,6 +46,9 @@ export default function AdminDashboard() {
 
   // Global Config / Settings
   const [enable18Weekday, setEnable18Weekday] = useState(true);
+  const [blockedWeekdays, setBlockedWeekdays] = useState([0]); // 0 = Domingo cerrado por defecto
+  const [blockedDates, setBlockedDates] = useState([]);
+  const [dateToBlock, setDateToBlock] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const router = useRouter();
 
@@ -80,6 +83,14 @@ export default function AdminDashboard() {
       .then(data => {
         if (data.enable_18_weekday !== undefined) {
           setEnable18Weekday(data.enable_18_weekday);
+        }
+        if (data.blocked_weekdays !== undefined) {
+          const list = data.blocked_weekdays.split(',').map(d => parseInt(d.trim(), 10)).filter(n => !isNaN(n));
+          setBlockedWeekdays(list);
+        }
+        if (data.blocked_dates !== undefined) {
+          const list = data.blocked_dates.split(',').map(d => d.trim()).filter(Boolean);
+          setBlockedDates(list);
         }
       })
       .catch(err => console.error('Error fetching settings:', err));
@@ -237,6 +248,96 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error(err);
       alert('Error de conexión al actualizar.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Cambiar bloqueo de día de la semana
+  const handleToggleWeekday = async (dayNum) => {
+    setActionLoading(true);
+    try {
+      let nextBlocked;
+      if (blockedWeekdays.includes(dayNum)) {
+        nextBlocked = blockedWeekdays.filter(d => d !== dayNum);
+      } else {
+        nextBlocked = [...blockedWeekdays, dayNum];
+      }
+
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked_weekdays: nextBlocked.join(',') }),
+      });
+
+      if (res.ok) {
+        setBlockedWeekdays(nextBlocked);
+      } else {
+        alert('No se pudo guardar la configuración.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error al actualizar.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Bloquear una fecha específica
+  const handleAddBlockedDate = async (e) => {
+    e.preventDefault();
+    if (!dateToBlock) return;
+
+    if (blockedDates.includes(dateToBlock)) {
+      alert('Esta fecha ya está bloqueada.');
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const nextBlocked = [...blockedDates, dateToBlock];
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked_dates: nextBlocked.join(',') }),
+      });
+
+      if (res.ok) {
+        setBlockedDates(nextBlocked);
+        setDateToBlock('');
+      } else {
+        alert('No se pudo bloquear la fecha.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error al bloquear.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Desbloquear una fecha específica
+  const handleRemoveBlockedDate = async (dateStr) => {
+    const confirmUnlock = window.confirm(`¿Estás segura de que deseas desbloquear la fecha ${dateStr}?`);
+    if (!confirmUnlock) return;
+
+    setActionLoading(true);
+    try {
+      const nextBlocked = blockedDates.filter(d => d !== dateStr);
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked_dates: nextBlocked.join(',') }),
+      });
+
+      if (res.ok) {
+        setBlockedDates(nextBlocked);
+      } else {
+        alert('No se pudo desbloquear la fecha.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error al desbloquear.');
     } finally {
       setActionLoading(false);
     }
@@ -481,7 +582,7 @@ export default function AdminDashboard() {
               </label>
             </div>
 
-            <div style={{ marginTop: '10px' }}>
+            <div style={{ marginTop: '15px' }}>
               <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Horarios del Estudio
               </h3>
@@ -490,6 +591,100 @@ export default function AdminDashboard() {
                 <li>• Sábados: 8:00, 10:00, 12:00, 14:00, 16:00 y 18:00 hs.</li>
                 <li>• Domingos: Cerrado.</li>
               </ul>
+            </div>
+
+            {/* Días Habilitados */}
+            <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+              <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Días Habilitados
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {[
+                  { label: 'Lunes', val: 1 },
+                  { label: 'Martes', val: 2 },
+                  { label: 'Miércoles', val: 3 },
+                  { label: 'Jueves', val: 4 },
+                  { label: 'Viernes', val: 5 },
+                  { label: 'Sábados', val: 6 },
+                  { label: 'Domingos', val: 0 },
+                ].map(day => {
+                  const isBlocked = blockedWeekdays.includes(day.val);
+                  return (
+                    <label key={day.val} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={!isBlocked}
+                        onChange={() => handleToggleWeekday(day.val)}
+                        disabled={actionLoading}
+                      />
+                      <span>
+                        {day.label} {isBlocked && <span style={{ fontSize: '0.75rem', color: 'var(--error)', marginLeft: '4px' }}>(Inactivo)</span>}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Bloquear Fechas Específicas */}
+            <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+              <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Bloquear Fechas
+              </h3>
+              
+              <form onSubmit={handleAddBlockedDate} style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
+                <input
+                  type="date"
+                  required
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '0.85rem',
+                    flexGrow: 1
+                  }}
+                  value={dateToBlock}
+                  onChange={(e) => setDateToBlock(e.target.value)}
+                  disabled={actionLoading}
+                />
+                <button
+                  type="submit"
+                  className={styles.logoutBtn}
+                  style={{ padding: '6px 12px', fontSize: '0.8rem', border: '1px solid var(--accent-rose)', color: 'var(--accent-rose)' }}
+                  disabled={actionLoading}
+                >
+                  Bloquear
+                </button>
+              </form>
+
+              {blockedDates.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto', paddingRight: '5px' }}>
+                  {blockedDates.map(dateStr => (
+                    <div key={dateStr} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', backgroundColor: 'rgba(203, 120, 112, 0.05)', border: '1px solid rgba(203, 120, 112, 0.15)', borderRadius: 'var(--radius-sm)' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>
+                        {new Date(`${dateStr}T00:00:00`).toLocaleDateString('es-AR', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveBlockedDate(dateStr)}
+                        disabled={actionLoading}
+                        style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        title="Desbloquear fecha"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  No hay fechas bloqueadas.
+                </p>
+              )}
             </div>
           </div>
 

@@ -75,12 +75,39 @@ export async function POST(request) {
     const bookingDate = new Date(`${appointment_date}T00:00:00`);
     const dayOfWeek = bookingDate.getDay(); // 0: Domingo, 1: Lunes, ..., 6: Sábado
 
-    // 1. Validar que no sea Domingo
-    if (dayOfWeek === 0) {
-      return NextResponse.json({ error: 'Los domingos no se realizan turnos' }, { status: 400 });
+    const db = await getDb();
+    
+    // Obtener configuraciones de bloqueos
+    const settingsResult = await db.execute('SELECT key, value FROM settings');
+    const settings = {
+      enable_18_weekday: true,
+      blocked_weekdays: '0', // 0 = Domingo cerrado por defecto
+      blocked_dates: ''
+    };
+    for (const row of settingsResult.rows) {
+      if (row.key === 'enable_18_weekday') {
+        settings.enable_18_weekday = row.value === 'true';
+      } else if (row.key === 'blocked_weekdays') {
+        settings.blocked_weekdays = row.value;
+      } else if (row.key === 'blocked_dates') {
+        settings.blocked_dates = row.value;
+      }
     }
 
-    // 2. Validar horas según el día
+    // 1. Validar si la fecha del turno está en la lista de fechas bloqueadas
+    const blockedDatesArray = settings.blocked_dates.split(',').map(d => d.trim()).filter(Boolean);
+    if (blockedDatesArray.includes(appointment_date)) {
+      return NextResponse.json({ error: 'La fecha seleccionada no está disponible (día bloqueado)' }, { status: 400 });
+    }
+
+    // 2. Validar si el día de la semana está bloqueado
+    const blockedWeekdaysArray = settings.blocked_weekdays.split(',').map(d => parseInt(d.trim(), 10)).filter(n => !isNaN(n));
+    if (blockedWeekdaysArray.includes(dayOfWeek)) {
+      const dayNames = ['Domingos', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábados'];
+      return NextResponse.json({ error: `Los días ${dayNames[dayOfWeek]} no están disponibles para reservar` }, { status: 400 });
+    }
+
+    // 3. Validar horas según el día
     const validWeekdayTimes = ['08:00', '10:00', '14:00', '16:00', '18:00'];
     const validSaturdayTimes = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'];
 
@@ -95,18 +122,9 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Horario inválido para días de semana' }, { status: 400 });
       }
 
-      // Si es el turno de las 18:00hs, validar si está activo en la base de datos
-      if (appointment_time === '18:00') {
-        const db = await getDb();
-        const settingsResult = await db.execute({
-          sql: 'SELECT value FROM settings WHERE key = ?',
-          args: ['enable_18_weekday'],
-        });
-        const enable18 = settingsResult.rows[0]?.value === 'true';
-
-        if (!enable18) {
-          return NextResponse.json({ error: 'El turno de las 18:00hs en días de semana no está disponible actualmente' }, { status: 400 });
-        }
+      // Si es el turno de las 18:00hs, validar si está activo
+      if (appointment_time === '18:00' && !settings.enable_18_weekday) {
+        return NextResponse.json({ error: 'El turno de las 18:00hs en días de semana no está disponible actualmente' }, { status: 400 });
       }
     }
 
@@ -115,8 +133,6 @@ export async function POST(request) {
     if (appointment_date < todayStr) {
       return NextResponse.json({ error: 'No se pueden reservar turnos en fechas pasadas' }, { status: 400 });
     }
-
-    const db = await getDb();
 
     // 4. Validar doble reserva (evitar que dos personas reserven el mismo slot)
     const checkResult = await db.execute({

@@ -25,6 +25,8 @@ export default function BookingCalendar() {
   
   const [bookedTimes, setBookedTimes] = useState([]);
   const [enable18Weekday, setEnable18Weekday] = useState(true);
+  const [blockedWeekdays, setBlockedWeekdays] = useState([0]); // 0 = Domingo cerrado por defecto
+  const [blockedDates, setBlockedDates] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(null);
@@ -39,13 +41,21 @@ export default function BookingCalendar() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  // Obtener la configuración del turno de las 18:00hs y los servicios desde la DB
+  // Obtener la configuración del turno de las 18:00hs, bloqueos y los servicios desde la DB
   useEffect(() => {
     fetch('/api/admin/settings')
       .then(res => res.json())
       .then(data => {
         if (data.enable_18_weekday !== undefined) {
           setEnable18Weekday(data.enable_18_weekday);
+        }
+        if (data.blocked_weekdays !== undefined) {
+          const list = data.blocked_weekdays.split(',').map(d => parseInt(d.trim(), 10)).filter(n => !isNaN(n));
+          setBlockedWeekdays(list);
+        }
+        if (data.blocked_dates !== undefined) {
+          const list = data.blocked_dates.split(',').map(d => d.trim()).filter(Boolean);
+          setBlockedDates(list);
         }
       })
       .catch(err => console.error('Error fetching settings:', err));
@@ -153,12 +163,20 @@ export default function BookingCalendar() {
       const dateCopy = new Date(dateObj);
       dateCopy.setHours(0, 0, 0, 0);
       
+      const yearNum = dateObj.getFullYear();
+      const monthNum = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const dayNumStr = String(dateObj.getDate()).padStart(2, '0');
+      const dateStr = `${yearNum}-${monthNum}-${dayNumStr}`;
+      
+      const isBlockedDate = blockedDates.includes(dateStr);
+      const isBlockedWeekday = blockedWeekdays.includes(dateObj.getDay());
+      
       days.push({
         dayNum: i,
         isCurrentMonth: true,
         date: dateObj,
         isToday: dateCopy.getTime() === today.getTime(),
-        isDisabled: dateCopy.getTime() < today.getTime() || dateObj.getDay() === 0, // Pasados o Domingos
+        isDisabled: dateCopy.getTime() < today.getTime() || isBlockedWeekday || isBlockedDate,
         isSunday: dateObj.getDay() === 0,
       });
     }
@@ -202,23 +220,40 @@ export default function BookingCalendar() {
 
   const slots = getAvailableSlots();
 
-  // Buscar datos previos de la clienta al ingresar su celular (autocompletado)
-  const handlePhoneBlur = async () => {
-    if (clientName.trim() !== '') return;
-    const cleanPhone = clientPhone.replace(/\D/g, '');
+  // Buscar datos del cliente por celular (autocompletado)
+  const triggerAutocomplete = async (phoneValue, currentName, currentEmail) => {
+    const cleanPhone = phoneValue.replace(/\D/g, '');
     if (cleanPhone.length < 8) return;
 
     try {
-      const res = await fetch(`/api/appointments/autocomplete?phone=${encodeURIComponent(clientPhone)}`);
+      const res = await fetch(`/api/appointments/autocomplete?phone=${encodeURIComponent(phoneValue)}`);
       const data = await res.json();
       if (data.found) {
-        setClientName(data.client_name);
-        if (data.client_email) {
-          setClientEmail(data.client_email);
+        // Autocompleta si está vacío o si el nombre actual es muy corto (menos de 3 caracteres)
+        if (currentName.trim() === '' || currentName.trim().length < 3) {
+          setClientName(data.client_name);
+        }
+        if (!currentEmail || currentEmail.trim() === '') {
+          setClientEmail(data.client_email || '');
         }
       }
     } catch (err) {
       console.error('Error fetching autocomplete:', err);
+    }
+  };
+
+  const handlePhoneBlur = () => {
+    triggerAutocomplete(clientPhone, clientName, clientEmail);
+  };
+
+  const handlePhoneChange = (e) => {
+    const value = e.target.value;
+    setClientPhone(value);
+    
+    // Si llega a 10 dígitos o más (celular argentino estándar), autocompletar automáticamente al escribir
+    const clean = value.replace(/\D/g, '');
+    if (clean.length === 10) {
+      triggerAutocomplete(value, clientName, clientEmail);
     }
   };
 
@@ -545,7 +580,7 @@ export default function BookingCalendar() {
                     className={styles.input}
                     placeholder="Ej. 11 2345 6789"
                     value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
+                    onChange={handlePhoneChange}
                     onBlur={handlePhoneBlur}
                     required
                   />

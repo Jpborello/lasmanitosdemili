@@ -2,18 +2,29 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { cookies } from 'next/headers';
 
-// GET: Retornar las configuraciones públicas (ej. si el turno de las 18hs está activo)
+// GET: Retornar las configuraciones públicas
 export async function GET() {
   try {
     const db = await getDb();
-    const result = await db.execute({
-      sql: 'SELECT value FROM settings WHERE key = ?',
-      args: ['enable_18_weekday'],
-    });
+    const result = await db.execute('SELECT key, value FROM settings');
+    
+    const settings = {
+      enable_18_weekday: true,
+      blocked_weekdays: '0', // 0 = Domingo cerrado por defecto
+      blocked_dates: '',
+    };
 
-    const enable18 = result.rows[0]?.value === 'true';
+    for (const row of result.rows) {
+      if (row.key === 'enable_18_weekday') {
+        settings.enable_18_weekday = row.value === 'true';
+      } else if (row.key === 'blocked_weekdays') {
+        settings.blocked_weekdays = row.value;
+      } else if (row.key === 'blocked_dates') {
+        settings.blocked_dates = row.value;
+      }
+    }
 
-    return NextResponse.json({ enable_18_weekday: enable18 });
+    return NextResponse.json(settings);
   } catch (error) {
     console.error('Error in settings GET:', error);
     return NextResponse.json({ error: 'Error al obtener configuración' }, { status: 500 });
@@ -26,25 +37,54 @@ export async function POST(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get('admin_token')?.value;
 
-    // Verificar token simple (usamos la contraseña de administrador como token por simplicidad)
     if (!token || token !== process.env.ADMIN_PASSWORD) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { enable_18_weekday } = body;
-
-    if (enable_18_weekday === undefined) {
-      return NextResponse.json({ error: 'Falta el campo enable_18_weekday' }, { status: 400 });
-    }
+    const { enable_18_weekday, blocked_weekdays, blocked_dates } = body;
 
     const db = await getDb();
-    await db.execute({
-      sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
-      args: ['enable_18_weekday', enable_18_weekday ? 'true' : 'false'],
-    });
 
-    return NextResponse.json({ success: true, enable_18_weekday });
+    if (enable_18_weekday !== undefined) {
+      await db.execute({
+        sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        args: ['enable_18_weekday', enable_18_weekday ? 'true' : 'false'],
+      });
+    }
+
+    if (blocked_weekdays !== undefined) {
+      await db.execute({
+        sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        args: ['blocked_weekdays', blocked_weekdays.toString()],
+      });
+    }
+
+    if (blocked_dates !== undefined) {
+      await db.execute({
+        sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        args: ['blocked_dates', blocked_dates.toString()],
+      });
+    }
+
+    // Obtener la configuración actualizada para responder
+    const result = await db.execute('SELECT key, value FROM settings');
+    const settings = {
+      enable_18_weekday: true,
+      blocked_weekdays: '0',
+      blocked_dates: ''
+    };
+    for (const row of result.rows) {
+      if (row.key === 'enable_18_weekday') {
+        settings.enable_18_weekday = row.value === 'true';
+      } else if (row.key === 'blocked_weekdays') {
+        settings.blocked_weekdays = row.value;
+      } else if (row.key === 'blocked_dates') {
+        settings.blocked_dates = row.value;
+      }
+    }
+
+    return NextResponse.json({ success: true, ...settings });
   } catch (error) {
     console.error('Error in settings POST:', error);
     return NextResponse.json({ error: 'Error al actualizar configuración' }, { status: 500 });

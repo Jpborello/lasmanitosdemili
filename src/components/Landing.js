@@ -16,6 +16,7 @@ export default function Landing() {
   const [reviewSuccess, setReviewSuccess] = useState('');
   const [reviewError, setReviewError] = useState('');
   const [servicesList, setServicesList] = useState([]);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   // Estados del Overlay de Registro/Bienvenida
   const [isFirstTime, setIsFirstTime] = useState(true);
@@ -458,7 +459,12 @@ export default function Landing() {
               { src: '/images/Screenshot 2026-07-21 193828.png', title: 'Efecto Mármol' },
               { src: '/images/Screenshot 2026-07-21 193838.png', title: 'Decoración Mano Alzada' },
             ].map((img, idx) => (
-              <div key={idx} className={styles.galleryItem}>
+              <div 
+                key={idx} 
+                className={styles.galleryItem}
+                onClick={() => setSelectedImage(img)}
+                title="Haz clic para ampliar"
+              >
                 <img src={img.src} alt={img.title} className={styles.galleryImg} />
                 <div className={styles.watermark}>Mili Nails</div>
                 <div className={styles.galleryOverlay}>
@@ -469,6 +475,29 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* Lightbox / Modal de Imagen Ampliada */}
+      {selectedImage && (
+        <div 
+          className={styles.lightboxOverlay} 
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className={styles.lightboxContent} onClick={(e) => e.stopPropagation()}>
+            <button 
+              type="button"
+              className={styles.lightboxClose} 
+              onClick={() => setSelectedImage(null)}
+            >
+              ×
+            </button>
+            <img src={selectedImage.src} alt={selectedImage.title} className={styles.lightboxImg} />
+            <div className={styles.lightboxCaption}>
+              <h3>{selectedImage.title}</h3>
+              <p>Mili Nails - Trabajo Real</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Testimonials */}
       <section className={styles.testimonialsSection}>
