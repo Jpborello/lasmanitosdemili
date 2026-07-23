@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Excluir panel de administración y APIs para privacidad y seguridad
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: https://lasmanitosdemili.com.ar/sitemap.xml

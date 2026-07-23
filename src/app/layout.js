@@ -14,8 +14,37 @@ const montserrat = Montserrat({
 });
 
 export const metadata = {
-  title: "Las Manitos de Mili | Manicura Profesional & Turnos Online",
-  description: "Reserva tu turno online con Mili, manicurista profesional. Semipermanente, Kapping, Esculpidas y más. Atención premium y personalizada.",
+  title: "Las Manitos de Mili | Manicuría Profesional en Rosario - Turnos Online",
+  description: "Estudio de manicuría premium en Rosario, Santa Fe. Reserva tu turno online de Semipermanente, Kapping Poligel, Soft Gel y Esculpidas. Uñas perfectas y duraderas con Mili Nails.",
+  keywords: [
+    "manicura rosario",
+    "nails rosario",
+    "manicuría rosario",
+    "kapping poligel rosario",
+    "soft gel rosario",
+    "esculpidas rosario",
+    "mili nails",
+    "las manitos de mili",
+    "turnos manicuría rosario",
+    "esmaltado semipermanente rosario",
+    "decoracion de uñas rosario",
+    "pedicura rosario",
+    "belleza de manos rosario"
+  ],
+  authors: [{ name: "Sami (Mili Nails)" }],
+  creator: "neo core sys",
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    title: "Las Manitos de Mili | Manicuría en Rosario - Turnos Online",
+    description: "Estudio de manicuría premium en Rosario, Santa Fe. Reserva tu turno online de Semipermanente, Kapping Poligel, Soft Gel y Esculpidas.",
+    url: "https://lasmanitosdemili.com.ar",
+    siteName: "Las Manitos de Mili",
+    locale: "es_AR",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }) {
