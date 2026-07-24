@@ -49,6 +49,9 @@ export default function AdminDashboard() {
   const [blockedWeekdays, setBlockedWeekdays] = useState([0]); // 0 = Domingo cerrado por defecto
   const [blockedDates, setBlockedDates] = useState([]);
   const [dateToBlock, setDateToBlock] = useState('');
+  const [blockedSlots, setBlockedSlots] = useState([]);
+  const [slotDateToBlock, setSlotDateToBlock] = useState('');
+  const [slotTimeToBlock, setSlotTimeToBlock] = useState('08:00');
   const [actionLoading, setActionLoading] = useState(false);
   const router = useRouter();
 
@@ -91,6 +94,10 @@ export default function AdminDashboard() {
         if (data.blocked_dates !== undefined) {
           const list = data.blocked_dates.split(',').map(d => d.trim()).filter(Boolean);
           setBlockedDates(list);
+        }
+        if (data.blocked_slots !== undefined) {
+          const list = data.blocked_slots.split(',').map(s => s.trim()).filter(Boolean);
+          setBlockedSlots(list);
         }
       })
       .catch(err => console.error('Error fetching settings:', err));
@@ -334,6 +341,74 @@ export default function AdminDashboard() {
         setBlockedDates(nextBlocked);
       } else {
         alert('No se pudo desbloquear la fecha.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error al desbloquear.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Bloquear un horario específico (fecha + hora)
+  const handleAddBlockedSlot = async (e) => {
+    e.preventDefault();
+    if (!slotDateToBlock || !slotTimeToBlock) return;
+
+    const slotKey = `${slotDateToBlock}_${slotTimeToBlock}`;
+    if (blockedSlots.includes(slotKey)) {
+      alert('Este horario ya está bloqueado en esta fecha.');
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const nextBlocked = [...blockedSlots, slotKey];
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked_slots: nextBlocked.join(',') }),
+      });
+
+      if (res.ok) {
+        setBlockedSlots(nextBlocked);
+        setSlotDateToBlock('');
+      } else {
+        alert('No se pudo bloquear el horario.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error al bloquear.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Desbloquear un horario específico
+  const handleRemoveBlockedSlot = async (slotKey) => {
+    const [dateStr, timeStr] = slotKey.split('_');
+    const formattedDate = new Date(`${dateStr}T00:00:00`).toLocaleDateString('es-AR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+    
+    const confirmUnlock = window.confirm(`¿Estás segura de que deseas desbloquear el horario de las ${timeStr}hs el día ${formattedDate}?`);
+    if (!confirmUnlock) return;
+
+    setActionLoading(true);
+    try {
+      const nextBlocked = blockedSlots.filter(s => s !== slotKey);
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked_slots: nextBlocked.join(',') }),
+      });
+
+      if (res.ok) {
+        setBlockedSlots(nextBlocked);
+      } else {
+        alert('No se pudo desbloquear el horario.');
       }
     } catch (err) {
       console.error(err);
@@ -683,6 +758,90 @@ export default function AdminDashboard() {
               ) : (
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
                   No hay fechas bloqueadas.
+                </p>
+              )}
+            </div>
+
+            {/* Bloquear Horarios Específicos */}
+            <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+              <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Bloquear Horarios Específicos
+              </h3>
+              
+              <form onSubmit={handleAddBlockedSlot} style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '15px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="date"
+                    required
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '0.85rem',
+                      flexGrow: 1
+                    }}
+                    value={slotDateToBlock}
+                    onChange={(e) => setSlotDateToBlock(e.target.value)}
+                    disabled={actionLoading}
+                  />
+                  
+                  <select
+                    required
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '0.85rem',
+                      backgroundColor: 'var(--white)',
+                    }}
+                    value={slotTimeToBlock}
+                    onChange={(e) => setSlotTimeToBlock(e.target.value)}
+                    disabled={actionLoading}
+                  >
+                    {['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'].map(t => (
+                      <option key={t} value={t}>{t} hs</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <button
+                  type="submit"
+                  className={styles.logoutBtn}
+                  style={{ width: '100%', padding: '8px', fontSize: '0.8rem', border: '1px solid var(--accent-rose)', color: 'var(--accent-rose)' }}
+                  disabled={actionLoading}
+                >
+                  Bloquear Horario
+                </button>
+              </form>
+
+              {blockedSlots.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto', paddingRight: '5px' }}>
+                  {blockedSlots.map(slotKey => {
+                    const [dateStr, timeStr] = slotKey.split('_');
+                    return (
+                      <div key={slotKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', backgroundColor: 'rgba(203, 120, 112, 0.05)', border: '1px solid rgba(203, 120, 112, 0.15)', borderRadius: 'var(--radius-sm)' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>
+                          {new Date(`${dateStr}T00:00:00`).toLocaleDateString('es-AR', {
+                            day: 'numeric',
+                            month: 'short'
+                          })} - {timeStr} hs
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveBlockedSlot(slotKey)}
+                          disabled={actionLoading}
+                          style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                          title="Desbloquear horario"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  No hay horarios bloqueados.
                 </p>
               )}
             </div>

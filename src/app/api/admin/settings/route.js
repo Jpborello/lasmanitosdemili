@@ -12,6 +12,7 @@ export async function GET() {
       enable_18_weekday: true,
       blocked_weekdays: '0', // 0 = Domingo cerrado por defecto
       blocked_dates: '',
+      blocked_slots: '',
     };
 
     for (const row of result.rows) {
@@ -21,6 +22,8 @@ export async function GET() {
         settings.blocked_weekdays = row.value;
       } else if (row.key === 'blocked_dates') {
         settings.blocked_dates = row.value;
+      } else if (row.key === 'blocked_slots') {
+        settings.blocked_slots = row.value;
       }
     }
 
@@ -42,7 +45,7 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { enable_18_weekday, blocked_weekdays, blocked_dates } = body;
+    const { enable_18_weekday, blocked_weekdays, blocked_dates, blocked_slots } = body;
 
     const db = await getDb();
 
@@ -67,12 +70,20 @@ export async function POST(request) {
       });
     }
 
+    if (blocked_slots !== undefined) {
+      await db.execute({
+        sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        args: ['blocked_slots', blocked_slots.toString()],
+      });
+    }
+
     // Obtener la configuración actualizada para responder
     const result = await db.execute('SELECT key, value FROM settings');
     const settings = {
       enable_18_weekday: true,
       blocked_weekdays: '0',
-      blocked_dates: ''
+      blocked_dates: '',
+      blocked_slots: '',
     };
     for (const row of result.rows) {
       if (row.key === 'enable_18_weekday') {
@@ -81,6 +92,8 @@ export async function POST(request) {
         settings.blocked_weekdays = row.value;
       } else if (row.key === 'blocked_dates') {
         settings.blocked_dates = row.value;
+      } else if (row.key === 'blocked_slots') {
+        settings.blocked_slots = row.value;
       }
     }
 

@@ -82,7 +82,8 @@ export async function POST(request) {
     const settings = {
       enable_18_weekday: true,
       blocked_weekdays: '0', // 0 = Domingo cerrado por defecto
-      blocked_dates: ''
+      blocked_dates: '',
+      blocked_slots: '',
     };
     for (const row of settingsResult.rows) {
       if (row.key === 'enable_18_weekday') {
@@ -91,6 +92,8 @@ export async function POST(request) {
         settings.blocked_weekdays = row.value;
       } else if (row.key === 'blocked_dates') {
         settings.blocked_dates = row.value;
+      } else if (row.key === 'blocked_slots') {
+        settings.blocked_slots = row.value;
       }
     }
 
@@ -105,6 +108,13 @@ export async function POST(request) {
     if (blockedWeekdaysArray.includes(dayOfWeek)) {
       const dayNames = ['Domingos', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábados'];
       return NextResponse.json({ error: `Los días ${dayNames[dayOfWeek]} no están disponibles para reservar` }, { status: 400 });
+    }
+
+    // 3. Validar si el slot específico (fecha + hora) está bloqueado
+    const blockedSlotsArray = settings.blocked_slots.split(',').map(s => s.trim()).filter(Boolean);
+    const currentSlotStr = `${appointment_date}_${appointment_time}`;
+    if (blockedSlotsArray.includes(currentSlotStr)) {
+      return NextResponse.json({ error: 'El horario seleccionado en esta fecha no está disponible (bloqueado)' }, { status: 400 });
     }
 
     // 3. Validar horas según el día

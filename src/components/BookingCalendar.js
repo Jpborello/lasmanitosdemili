@@ -27,6 +27,7 @@ export default function BookingCalendar() {
   const [enable18Weekday, setEnable18Weekday] = useState(true);
   const [blockedWeekdays, setBlockedWeekdays] = useState([0]); // 0 = Domingo cerrado por defecto
   const [blockedDates, setBlockedDates] = useState([]);
+  const [blockedSlots, setBlockedSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(null);
@@ -56,6 +57,10 @@ export default function BookingCalendar() {
         if (data.blocked_dates !== undefined) {
           const list = data.blocked_dates.split(',').map(d => d.trim()).filter(Boolean);
           setBlockedDates(list);
+        }
+        if (data.blocked_slots !== undefined) {
+          const list = data.blocked_slots.split(',').map(s => s.trim()).filter(Boolean);
+          setBlockedSlots(list);
         }
       })
       .catch(err => console.error('Error fetching settings:', err));
@@ -202,20 +207,27 @@ export default function BookingCalendar() {
     if (!selectedDate) return [];
     
     const dayOfWeek = selectedDate.getDay(); // 0 = Dom, 6 = Sáb, 1-5 = Lun-Vie
-    
     if (dayOfWeek === 0) return []; // Domingos cerrado
 
+    const yearNum = selectedDate.getFullYear();
+    const monthNum = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const dayNumStr = String(selectedDate.getDate()).padStart(2, '0');
+    const dateStr = `${yearNum}-${monthNum}-${dayNumStr}`;
+
+    let times = [];
     if (dayOfWeek === 6) {
       // Sábados: 8, 10, 12, 14, 16, 18
-      return ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'];
+      times = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'];
     } else {
       // Lunes a Viernes: 8, 10, 14, 16, 18 (18 toggleable)
-      const times = ['08:00', '10:00', '14:00', '16:00'];
+      times = ['08:00', '10:00', '14:00', '16:00'];
       if (enable18Weekday) {
         times.push('18:00');
       }
-      return times;
     }
+
+    // Filtrar los slots que estén explícitamente bloqueados
+    return times.filter(t => !blockedSlots.includes(`${dateStr}_${t}`));
   };
 
   const slots = getAvailableSlots();
