@@ -611,6 +611,29 @@ export default function BookingCalendar() {
               </>
             )}
 
+            {/* Notas e Info del Turno */}
+            <div style={{
+              marginTop: '15px',
+              marginBottom: '15px',
+              padding: '12px 15px',
+              backgroundColor: 'rgba(212, 163, 89, 0.06)',
+              border: '1px solid rgba(212, 163, 89, 0.25)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '0.8rem',
+              color: 'var(--text-dark)',
+              lineHeight: '1.4',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px'
+            }}>
+              <p style={{ margin: 0 }}>
+                ⏰ <strong>Puntualidad y Tolerancia:</strong> Para poder cumplir con los tiempos de todas las clientas, contamos con una tolerancia máxima de 30 minutos. Pasado ese tiempo, se aplicará un recargo del 30% en el valor del servicio. ¡Agradecemos tu comprensión!
+              </p>
+              <p style={{ margin: 0, borderTop: '1px solid rgba(212, 163, 89, 0.15)', paddingTop: '8px' }}>
+                🚨 <strong>Turnos de Urgencia:</strong> Si necesitás un turno urgente fuera de los días u horarios disponibles en la agenda, tendrá un recargo adicional del 50% (el cual se abona con anticipación). Por favor, contactanos por WhatsApp para coordinarlo.
+              </p>
+            </div>
+
             {error && <p style={{ color: 'var(--error)', fontSize: '0.85rem', fontWeight: 600 }}>{error}</p>}
 
             <button
