@@ -3,25 +3,27 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Clock, Sparkles } from 'lucide-react';
 import styles from '@/styles/booking.module.css';
-
-// Los servicios se cargan dinámicamente desde la base de datos.
-const FALLBACK_SERVICES = [
-  { id: 'semi_mani', category: 'manicura', name: 'Semipermanente', price: 14000, duration: '60 min' },
-  { id: 'kapping', category: 'manicura', name: 'Kapping Poligel', price: 18000, duration: '90 min' },
-  { id: 'soft_gel', category: 'manicura', name: 'Soft Gel', price: 19000, duration: '90 min' },
-  { id: 'esculpidas', category: 'manicura', name: 'Esculpidas', price: 20000, duration: '120 min' },
-  { id: 'retirado_mani', category: 'manicura', name: 'Retirado final', price: 5000, duration: '30 min' },
-  { id: 'semi_pedi', category: 'pedicura', name: 'Semipermanente', price: 12000, duration: '60 min' },
-  { id: 'pedi_completa', category: 'pedicura', name: 'Retirado de callos, grietas y piel muerta + hidratación', price: 15000, duration: '75 min' },
-  { id: 'pedi_completa_semi', category: 'pedicura', name: 'Retirado de callos, grietas y piel muerta + hidratación + semi', price: 20000, duration: '100 min' }
-];
+import { DEFAULT_SERVICES } from '@/lib/constants';
+import { useClientSession } from '@/hooks/useClientSession';
 
 export default function BookingCalendar() {
+  const {
+    clientName,
+    clientPhone,
+    clientEmail,
+    isRegistered,
+    setClientName,
+    setClientPhone,
+    setClientEmail,
+    saveSession,
+    clearSession,
+  } = useClientSession();
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
   const [selectedService, setSelectedService] = useState('');
-  const [servicesList, setServicesList] = useState(FALLBACK_SERVICES);
+  const [servicesList, setServicesList] = useState(DEFAULT_SERVICES);
   
   const [bookedTimes, setBookedTimes] = useState([]);
   const [enable18Weekday, setEnable18Weekday] = useState(true);
@@ -32,12 +34,6 @@ export default function BookingCalendar() {
   const [submitting, setSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(null);
   const [error, setError] = useState('');
-
-  // Form states
-  const [clientName, setClientName] = useState('');
-  const [clientPhone, setClientPhone] = useState('');
-  const [clientEmail, setClientEmail] = useState('');
-  const [isRegistered, setIsRegistered] = useState(false);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -75,57 +71,40 @@ export default function BookingCalendar() {
       .catch(err => console.error('Error fetching services:', err));
   }, []);
 
-  // Cargar datos guardados del cliente desde localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedName = localStorage.getItem('mili_client_name');
-      const savedPhone = localStorage.getItem('mili_client_phone');
-      const savedEmail = localStorage.getItem('mili_client_email');
-      if (savedName) setClientName(savedName);
-      if (savedPhone) setClientPhone(savedPhone);
-      if (savedEmail) setClientEmail(savedEmail);
-      if (savedName && savedPhone) {
-        setIsRegistered(true);
-      }
-    }
-  }, []);
-
   // Eliminar datos guardados (Cerrar sesión de clienta)
   const handleUnregister = () => {
-    localStorage.removeItem('mili_client_name');
-    localStorage.removeItem('mili_client_phone');
-    localStorage.removeItem('mili_client_email');
-    setClientName('');
-    setClientPhone('');
-    setClientEmail('');
-    setIsRegistered(false);
+    clearSession();
   };
 
   // Obtener turnos reservados cada vez que se selecciona una fecha
   useEffect(() => {
     if (!selectedDate) return;
     
-    setLoadingSlots(true);
-    setError('');
-    setSelectedTime(null); // Resetear hora al cambiar fecha
-    
-    const dateStr = selectedDate.toISOString().split('T')[0];
-    fetch(`/api/appointments?date=${dateStr}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.bookedTimes) {
-          setBookedTimes(data.bookedTimes);
-        } else {
-          setBookedTimes([]);
-        }
-      })
-      .catch(err => {
-        console.error('Error fetching appointments:', err);
-        setError('Error al cargar horarios disponibles.');
-      })
-      .finally(() => {
-        setLoadingSlots(false);
-      });
+    const loadSlots = () => {
+      setLoadingSlots(true);
+      setError('');
+      setSelectedTime(null); // Resetear hora al cambiar fecha
+      
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      fetch(`/api/appointments?date=${dateStr}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.bookedTimes) {
+            setBookedTimes(data.bookedTimes);
+          } else {
+            setBookedTimes([]);
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching appointments:', err);
+          setError('Error al cargar horarios disponibles.');
+        })
+        .finally(() => {
+          setLoadingSlots(false);
+        });
+    };
+
+    setTimeout(loadSlots, 0);
   }, [selectedDate]);
 
   // Navegación del calendario
@@ -232,41 +211,8 @@ export default function BookingCalendar() {
 
   const slots = getAvailableSlots();
 
-  // Buscar datos del cliente por celular (autocompletado)
-  const triggerAutocomplete = async (phoneValue, currentName, currentEmail) => {
-    const cleanPhone = phoneValue.replace(/\D/g, '');
-    if (cleanPhone.length < 8) return;
-
-    try {
-      const res = await fetch(`/api/appointments/autocomplete?phone=${encodeURIComponent(phoneValue)}`);
-      const data = await res.json();
-      if (data.found) {
-        // Autocompleta si está vacío o si el nombre actual es muy corto (menos de 3 caracteres)
-        if (currentName.trim() === '' || currentName.trim().length < 3) {
-          setClientName(data.client_name);
-        }
-        if (!currentEmail || currentEmail.trim() === '') {
-          setClientEmail(data.client_email || '');
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching autocomplete:', err);
-    }
-  };
-
-  const handlePhoneBlur = () => {
-    triggerAutocomplete(clientPhone, clientName, clientEmail);
-  };
-
   const handlePhoneChange = (e) => {
-    const value = e.target.value;
-    setClientPhone(value);
-    
-    // Si llega a 10 dígitos o más (celular argentino estándar), autocompletar automáticamente al escribir
-    const clean = value.replace(/\D/g, '');
-    if (clean.length === 10) {
-      triggerAutocomplete(value, clientName, clientEmail);
-    }
+    setClientPhone(e.target.value);
   };
 
   // Enviar el formulario de reserva
@@ -302,13 +248,8 @@ export default function BookingCalendar() {
         throw new Error(data.error || 'Error al agendar el turno');
       }
 
-      // Guardar en localStorage para recordar en la próxima visita
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mili_client_name', clientName);
-        localStorage.setItem('mili_client_phone', clientPhone);
-        localStorage.setItem('mili_client_email', clientEmail || '');
-        setIsRegistered(true);
-      }
+      // Guardar usando el custom hook
+      saveSession(clientName, clientPhone, clientEmail || '');
 
       setBookingSuccess(data.appointment);
     } catch (err) {
@@ -593,7 +534,6 @@ export default function BookingCalendar() {
                     placeholder="Ej. 11 2345 6789"
                     value={clientPhone}
                     onChange={handlePhoneChange}
-                    onBlur={handlePhoneBlur}
                     required
                   />
                 </div>

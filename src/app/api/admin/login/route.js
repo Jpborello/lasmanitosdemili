@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import crypto from 'crypto';
+
+function getAdminHash() {
+  return crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
+}
 
 export async function POST(request) {
   try {
@@ -11,9 +16,10 @@ export async function POST(request) {
 
     if (password === process.env.ADMIN_PASSWORD) {
       const cookieStore = await cookies();
+      const adminHash = getAdminHash();
       
-      // Guardar cookie por 7 días
-      cookieStore.set('admin_token', password, {
+      // Guardar cookie por 7 días (hash de la contraseña)
+      cookieStore.set('admin_token', adminHash, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
@@ -36,8 +42,9 @@ export async function GET() {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('admin_token')?.value;
+    const adminHash = getAdminHash();
 
-    if (token === process.env.ADMIN_PASSWORD) {
+    if (token === adminHash) {
       return NextResponse.json({ authenticated: true });
     }
 
@@ -57,3 +64,4 @@ export async function DELETE() {
     return NextResponse.json({ error: 'Error al cerrar sesión' }, { status: 500 });
   }
 }
+

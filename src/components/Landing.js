@@ -4,8 +4,17 @@ import { useState, useEffect } from 'react';
 import { Sparkles, Clock, MapPin, ShieldCheck, Heart } from 'lucide-react';
 import styles from '@/styles/landing.module.css';
 import BookingCalendar from './BookingCalendar';
+import { useClientSession } from '@/hooks/useClientSession';
 
 export default function Landing() {
+  const {
+    clientName,
+    clientPhone,
+    clientEmail,
+    isRegistered,
+    saveSession,
+  } = useClientSession();
+
   const [reviews, setReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -19,26 +28,18 @@ export default function Landing() {
   const [selectedImage, setSelectedImage] = useState(null);
 
   // Estados del Overlay de Registro/Bienvenida
-  const [isFirstTime, setIsFirstTime] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [regName, setRegName] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [regError, setRegError] = useState('');
   const [regSubmitting, setRegSubmitting] = useState(false);
 
-  // Comprobar si ya está registrado en localStorage y si es admin en el servidor
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedName = localStorage.getItem('mili_client_name');
-      const savedPhone = localStorage.getItem('mili_client_phone');
-      if (savedName && savedPhone) {
-        setIsFirstTime(false);
-      }
-    }
+  const showPassword = regPhone.replace(/\D/g, '') === '3413022674';
 
+  // Comprobar si es admin en el servidor
+  useEffect(() => {
     fetch('/api/admin/login')
       .then(res => res.json())
       .then(data => {
@@ -48,16 +49,6 @@ export default function Landing() {
       })
       .catch(err => console.error('Error checking admin status:', err));
   }, []);
-
-  // Escuchar cambio de teléfono para mostrar input de contraseña de admin
-  useEffect(() => {
-    const cleanPhone = regPhone.replace(/\D/g, '');
-    if (cleanPhone === '3413022674') {
-      setShowPassword(true);
-    } else {
-      setShowPassword(false);
-    }
-  }, [regPhone]);
 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
@@ -94,29 +85,11 @@ export default function Landing() {
         }
 
         setIsAdmin(true);
-      } else {
-        // Consultar autocomplete por si ya tiene reservas previas
-        try {
-          const autoRes = await fetch(`/api/appointments/autocomplete?phone=${encodeURIComponent(regPhone)}`);
-          const autoData = await autoRes.json();
-          if (autoData.found) {
-            // Si tiene datos anteriores, respetamos sus datos
-            finalName = autoData.client_name;
-            if (autoData.client_email) finalEmail = autoData.client_email;
-          }
-        } catch (err) {
-          console.error('Error fetching autocomplete on welcome:', err);
-        }
       }
 
-      // Guardar datos en localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('mili_client_name', finalName);
-        localStorage.setItem('mili_client_phone', regPhone);
-        localStorage.setItem('mili_client_email', finalEmail || '');
-      }
+      // Guardar datos usando el custom hook
+      saveSession(finalName, regPhone, finalEmail || '');
 
-      setIsFirstTime(false);
       // Forzar recarga para que BookingCalendar tome la sesión
       if (typeof window !== 'undefined') {
         window.location.reload();
@@ -187,7 +160,7 @@ export default function Landing() {
     }
   };
 
-  if (isFirstTime) {
+  if (!isRegistered) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)', padding: '20px' }} className="animate-fade-in">
         {/* Simple Header */}

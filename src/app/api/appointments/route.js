@@ -13,7 +13,8 @@ export async function GET(request) {
     // Verificar si es administrador mediante cookie
     const cookieStore = await cookies();
     const token = cookieStore.get('admin_token')?.value;
-    const isAdmin = token && token === process.env.ADMIN_PASSWORD;
+    const adminHash = crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
+    const isAdmin = token && token === adminHash;
 
     const db = await getDb();
 
@@ -194,8 +195,9 @@ export async function DELETE(request) {
 
     const cookieStore = await cookies();
     const token = cookieStore.get('admin_token')?.value;
+    const adminHash = crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
 
-    if (!token || token !== process.env.ADMIN_PASSWORD) {
+    if (!token || token !== adminHash) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 

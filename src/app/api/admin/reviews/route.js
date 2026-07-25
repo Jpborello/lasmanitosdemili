@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { cookies } from 'next/headers';
+import crypto from 'crypto';
 
 // GET: Obtener todas las opiniones (para moderación)
 export async function GET() {
@@ -8,7 +9,8 @@ export async function GET() {
     const cookieStore = await cookies();
     const token = cookieStore.get('admin_token')?.value;
 
-    if (!token || token !== process.env.ADMIN_PASSWORD) {
+    const adminHash = crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
+    if (!token || token !== adminHash) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -32,7 +34,8 @@ export async function POST(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get('admin_token')?.value;
 
-    if (!token || token !== process.env.ADMIN_PASSWORD) {
+    const adminHash = crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
+    if (!token || token !== adminHash) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -69,7 +72,8 @@ export async function DELETE(request) {
     const cookieStore = await cookies();
     const token = cookieStore.get('admin_token')?.value;
 
-    if (!token || token !== process.env.ADMIN_PASSWORD) {
+    const adminHash = crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
+    if (!token || token !== adminHash) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 

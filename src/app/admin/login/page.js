@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Lock, Sparkles } from 'lucide-react';
 import styles from '@/styles/admin.module.css';
 
@@ -108,9 +109,9 @@ export default function AdminLogin() {
           </button>
         </form>
 
-        <a href="/" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', hover: { textDecoration: 'underline' } }}>
+        <Link href="/" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', hover: { textDecoration: 'underline' } }}>
           ← Volver a la web
-        </a>
+        </Link>
       </div>
     </div>
   );
