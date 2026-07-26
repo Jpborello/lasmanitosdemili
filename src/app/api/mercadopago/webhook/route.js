@@ -38,8 +38,14 @@ export async function POST(request) {
     });
 
     if (!mpResponse.ok) {
-      console.error('Failed to query payment status from Mercado Pago:', await mpResponse.text());
-      return NextResponse.json({ error: 'Error al consultar pago' }, { status: 502 });
+      const errorText = await mpResponse.text();
+      console.error('Failed to query payment status from Mercado Pago:', errorText);
+      
+      // Si es un error de cliente (400, 404, etc.), no reintentamos (retornamos 200)
+      if (mpResponse.status >= 400 && mpResponse.status < 500 && mpResponse.status !== 429) {
+        return NextResponse.json({ error: 'Consulta de pago inválida para el webhook', details: errorText });
+      }
+      return NextResponse.json({ error: 'Error al consultar pago en Mercado Pago' }, { status: 502 });
     }
 
     const paymentData = await mpResponse.json();
