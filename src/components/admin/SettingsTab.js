@@ -4,11 +4,17 @@ import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import styles from '@/styles/admin.module.css';
 
+import { useEffect } from 'react';
+
 export default function SettingsTab({
   enable18Weekday,
   blockedWeekdays,
   blockedDates,
   blockedSlots,
+  mpEnabled,
+  mpAccessToken,
+  mpPublicKey,
+  mpDepositAmount,
   actionLoading,
   onToggle18,
   onToggleWeekday,
@@ -16,10 +22,32 @@ export default function SettingsTab({
   onRemoveBlockedDate,
   onAddBlockedSlot,
   onRemoveBlockedSlot,
+  onSaveMercadoPago,
 }) {
   const [dateToBlock, setDateToBlock] = useState('');
   const [slotDateToBlock, setSlotDateToBlock] = useState('');
   const [slotTimeToBlock, setSlotTimeToBlock] = useState('08:00');
+
+  const [localMpEnabled, setLocalMpEnabled] = useState(mpEnabled || false);
+  const [localMpAccessToken, setLocalMpAccessToken] = useState(mpAccessToken || '');
+  const [localMpPublicKey, setLocalMpPublicKey] = useState(mpPublicKey || '');
+  const [localMpDepositAmount, setLocalMpDepositAmount] = useState(mpDepositAmount || 2000);
+
+  useEffect(() => {
+    if (mpEnabled !== undefined) setLocalMpEnabled(mpEnabled);
+  }, [mpEnabled]);
+
+  useEffect(() => {
+    if (mpAccessToken !== undefined) setLocalMpAccessToken(mpAccessToken);
+  }, [mpAccessToken]);
+
+  useEffect(() => {
+    if (mpPublicKey !== undefined) setLocalMpPublicKey(mpPublicKey);
+  }, [mpPublicKey]);
+
+  useEffect(() => {
+    if (mpDepositAmount !== undefined) setLocalMpDepositAmount(mpDepositAmount);
+  }, [mpDepositAmount]);
 
   const handleDateSubmit = (e) => {
     e.preventDefault();
@@ -33,6 +61,16 @@ export default function SettingsTab({
     if (!slotDateToBlock || !slotTimeToBlock) return;
     onAddBlockedSlot(slotDateToBlock, slotTimeToBlock);
     setSlotDateToBlock('');
+  };
+
+  const handleMpSubmit = (e) => {
+    e.preventDefault();
+    onSaveMercadoPago({
+      mp_enabled: localMpEnabled,
+      mp_access_token: localMpAccessToken,
+      mp_public_key: localMpPublicKey,
+      mp_deposit_amount: parseInt(localMpDepositAmount, 10) || 2000
+    });
   };
 
   return (
@@ -248,6 +286,91 @@ export default function SettingsTab({
             No hay horarios bloqueados.
           </p>
         )}
+      </div>
+
+      {/* Integración Mercado Pago */}
+      <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+        <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Integración de Mercado Pago (Cobro de Seña)
+        </h3>
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '15px' }}>
+          Configura una seña obligatoria para que las clientas confirmen su turno realizando un pago online.
+        </p>
+
+        <form onSubmit={handleMpSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Habilitar / Deshabilitar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--white)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Activar cobro de seña</span>
+            <label className={styles.switch}>
+              <input 
+                type="checkbox" 
+                checked={localMpEnabled} 
+                onChange={(e) => setLocalMpEnabled(e.target.checked)}
+                disabled={actionLoading}
+              />
+              <span className={styles.slider}></span>
+            </label>
+          </div>
+
+          {localMpEnabled && (
+            <>
+              {/* Access Token */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Access Token (Producción o Sandbox) *</label>
+                <input 
+                  type="password"
+                  required
+                  placeholder={mpAccessToken ? "••••••••••••••••••••••••••••••••" : "APP_USR-..."}
+                  className="input"
+                  style={{ width: '100%', fontSize: '0.85rem', padding: '8px 12px' }}
+                  value={localMpAccessToken}
+                  onChange={(e) => setLocalMpAccessToken(e.target.value)}
+                  disabled={actionLoading}
+                />
+              </div>
+
+              {/* Public Key */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Public Key *</label>
+                <input 
+                  type="text"
+                  required
+                  placeholder="APP_USR-..."
+                  className="input"
+                  style={{ width: '100%', fontSize: '0.85rem', padding: '8px 12px' }}
+                  value={localMpPublicKey}
+                  onChange={(e) => setLocalMpPublicKey(e.target.value)}
+                  disabled={actionLoading}
+                />
+              </div>
+
+              {/* Monto de la Seña */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Monto de la Seña (ARS) *</label>
+                <input 
+                  type="number"
+                  min="50"
+                  required
+                  placeholder="Ej: 2000"
+                  className="input"
+                  style={{ width: '100%', fontSize: '0.85rem', padding: '8px 12px' }}
+                  value={localMpDepositAmount}
+                  onChange={(e) => setLocalMpDepositAmount(e.target.value)}
+                  disabled={actionLoading}
+                />
+              </div>
+            </>
+          )}
+
+          <button
+            type="submit"
+            className="btn-primary"
+            style={{ width: '100%', padding: '10px', fontSize: '0.8rem', marginTop: '5px' }}
+            disabled={actionLoading}
+          >
+            Guardar Configuración de Pago
+          </button>
+        </form>
       </div>
     </div>
   );

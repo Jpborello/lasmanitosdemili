@@ -52,6 +52,15 @@ export async function getDb() {
         // La columna ya existía, ignoramos el error
       }
 
+      // Intentar agregar la columna status en caso de que la tabla ya existiese sin ella
+      try {
+        await db.execute(`
+          ALTER TABLE appointments ADD COLUMN status TEXT DEFAULT 'confirmed'
+        `);
+      } catch (statusError) {
+        // La columna ya existía, ignoramos el error
+      }
+
       // Crear tabla de settings
       await db.execute(`
         CREATE TABLE IF NOT EXISTS settings (
@@ -63,6 +72,20 @@ export async function getDb() {
       // Insertar configuración por defecto para habilitar el turno de las 18:00
       await db.execute(`
         INSERT OR IGNORE INTO settings (key, value) VALUES ('enable_18_weekday', 'true')
+      `);
+
+      // Insertar configuraciones por defecto de Mercado Pago
+      await db.execute(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('mp_enabled', 'false')
+      `);
+      await db.execute(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('mp_access_token', '')
+      `);
+      await db.execute(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('mp_public_key', '')
+      `);
+      await db.execute(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('mp_deposit_amount', '2000')
       `);
 
       // Crear tabla de reviews
@@ -137,6 +160,37 @@ export async function getDb() {
             args: [s.id, s.category, s.name, s.price, s.duration]
           });
         }
+      }
+
+      // Crear tabla de clients
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS clients (
+          phone TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          email TEXT,
+          created_at TEXT NOT NULL
+        )
+      `);
+
+      // Migrar clientas de turnos existentes
+      try {
+        await db.execute(`
+          INSERT OR IGNORE INTO clients (phone, name, email, created_at)
+          SELECT client_phone, client_name, MAX(client_email) as client_email, MIN(created_at) as created_at
+          FROM appointments
+          GROUP BY client_phone
+        `);
+      } catch (migrationError) {
+        console.error('Error al migrar clientas existentes:', migrationError);
+      }
+
+      // Crear índice UNIQUE en appointments para evitar reservas duplicadas simultáneas
+      try {
+        await db.execute(`
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_appointments_date_time ON appointments(appointment_date, appointment_time)
+        `);
+      } catch (indexError) {
+        console.error('Error al crear índice UNIQUE de turnos:', indexError);
       }
 
       initialized = true;

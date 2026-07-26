@@ -45,6 +45,10 @@ export default function AdminDashboard() {
   const [blockedWeekdays, setBlockedWeekdays] = useState([0]); // 0 = Domingo cerrado por defecto
   const [blockedDates, setBlockedDates] = useState([]);
   const [blockedSlots, setBlockedSlots] = useState([]);
+  const [mpEnabled, setMpEnabled] = useState(false);
+  const [mpAccessToken, setMpAccessToken] = useState('');
+  const [mpPublicKey, setMpPublicKey] = useState('');
+  const [mpDepositAmount, setMpDepositAmount] = useState(2000);
   
   // Clients State
   const [clientsList, setClientsList] = useState([]);
@@ -96,6 +100,18 @@ export default function AdminDashboard() {
         if (data.blocked_slots !== undefined) {
           const list = data.blocked_slots.split(',').map(s => s.trim()).filter(Boolean);
           setBlockedSlots(list);
+        }
+        if (data.mp_enabled !== undefined) {
+          setMpEnabled(data.mp_enabled);
+        }
+        if (data.mp_access_token !== undefined) {
+          setMpAccessToken(data.mp_access_token);
+        }
+        if (data.mp_public_key !== undefined) {
+          setMpPublicKey(data.mp_public_key);
+        }
+        if (data.mp_deposit_amount !== undefined) {
+          setMpDepositAmount(data.mp_deposit_amount);
         }
       })
       .catch(err => console.error('Error fetching settings:', err));
@@ -437,6 +453,34 @@ export default function AdminDashboard() {
     }
   };
 
+  // Guardar configuración de Mercado Pago
+  const handleSaveMercadoPago = async (config) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        if (data.mp_enabled !== undefined) setMpEnabled(data.mp_enabled);
+        if (data.mp_access_token !== undefined) setMpAccessToken(data.mp_access_token);
+        if (data.mp_public_key !== undefined) setMpPublicKey(data.mp_public_key);
+        if (data.mp_deposit_amount !== undefined) setMpDepositAmount(data.mp_deposit_amount);
+        alert('Configuración de Mercado Pago guardada exitosamente.');
+      } else {
+        alert(data.error || 'Error al guardar configuración.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // 8. Cancelar un turno
   const handleCancelAppointment = async (id) => {
     const appt = appointments.find(a => a.id === id);
@@ -656,6 +700,10 @@ export default function AdminDashboard() {
             blockedWeekdays={blockedWeekdays}
             blockedDates={blockedDates}
             blockedSlots={blockedSlots}
+            mpEnabled={mpEnabled}
+            mpAccessToken={mpAccessToken}
+            mpPublicKey={mpPublicKey}
+            mpDepositAmount={mpDepositAmount}
             actionLoading={actionLoading}
             onToggle18={handleToggle18}
             onToggleWeekday={handleToggleWeekday}
@@ -663,6 +711,7 @@ export default function AdminDashboard() {
             onRemoveBlockedDate={handleRemoveBlockedDate}
             onAddBlockedSlot={handleAddBlockedSlot}
             onRemoveBlockedSlot={handleRemoveBlockedSlot}
+            onSaveMercadoPago={handleSaveMercadoPago}
           />
           <AppointmentsTab
             appointments={appointments}

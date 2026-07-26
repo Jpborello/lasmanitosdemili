@@ -16,18 +16,19 @@ export async function GET() {
 
     const db = await getDb();
 
-    // 2. Obtener lista consolidada de clientas por celular
+    // 2. Obtener lista consolidada de clientas por celular usando la tabla clients
     const result = await db.execute(`
       SELECT 
-        client_name, 
-        client_phone, 
-        MAX(client_email) as client_email,
-        COUNT(*) as visits_count, 
-        COALESCE(SUM(price), 0) as total_spent,
-        MAX(appointment_date || ' ' || appointment_time) as last_visit
-      FROM appointments
-      GROUP BY client_phone
-      ORDER BY client_name ASC
+        c.name as client_name, 
+        c.phone as client_phone, 
+        c.email as client_email,
+        COUNT(a.id) as visits_count, 
+        COALESCE(SUM(a.price), 0) as total_spent,
+        MAX(a.appointment_date || ' ' || a.appointment_time) as last_visit
+      FROM clients c
+      LEFT JOIN appointments a ON c.phone = a.client_phone
+      GROUP BY c.phone
+      ORDER BY c.name ASC
     `);
 
     return NextResponse.json({ clients: result.rows });

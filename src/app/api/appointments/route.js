@@ -18,6 +18,17 @@ export async function GET(request) {
 
     const db = await getDb();
 
+    // Limpiar reservas pendientes expiradas (más de 15 minutos sin pagar)
+    try {
+      await db.execute(`
+        DELETE FROM appointments 
+        WHERE status = 'pending_payment' 
+          AND datetime(created_at) <= datetime('now', '-15 minutes')
+      `);
+    } catch (cleanError) {
+      console.error('Error cleaning up expired pending appointments in GET:', cleanError);
+    }
+
     // 1. Caso Admin: Ver lista completa de próximos turnos
     if (isAdmin && all) {
       // Obtener todos los turnos desde hoy en adelante (o todos ordenados)
@@ -77,14 +88,28 @@ export async function POST(request) {
     const dayOfWeek = bookingDate.getDay(); // 0: Domingo, 1: Lunes, ..., 6: Sábado
 
     const db = await getDb();
+
+    // Limpiar reservas pendientes expiradas (más de 15 minutos sin pagar)
+    try {
+      await db.execute(`
+        DELETE FROM appointments 
+        WHERE status = 'pending_payment' 
+          AND datetime(created_at) <= datetime('now', '-15 minutes')
+      `);
+    } catch (cleanError) {
+      console.error('Error cleaning up expired pending appointments in POST:', cleanError);
+    }
     
-    // Obtener configuraciones de bloqueos
+    // Obtener configuraciones de bloqueos y Mercado Pago
     const settingsResult = await db.execute('SELECT key, value FROM settings');
     const settings = {
       enable_18_weekday: true,
       blocked_weekdays: '0', // 0 = Domingo cerrado por defecto
       blocked_dates: '',
       blocked_slots: '',
+      mp_enabled: false,
+      mp_access_token: '',
+      mp_deposit_amount: 2000,
     };
     for (const row of settingsResult.rows) {
       if (row.key === 'enable_18_weekday') {
@@ -95,6 +120,12 @@ export async function POST(request) {
         settings.blocked_dates = row.value;
       } else if (row.key === 'blocked_slots') {
         settings.blocked_slots = row.value;
+      } else if (row.key === 'mp_enabled') {
+        settings.mp_enabled = row.value === 'true';
+      } else if (row.key === 'mp_access_token') {
+        settings.mp_access_token = row.value;
+      } else if (row.key === 'mp_deposit_amount') {
+        settings.mp_deposit_amount = parseInt(row.value, 10) || 2000;
       }
     }
 
@@ -158,6 +189,7 @@ export async function POST(request) {
     // 5. Insertar turno en la base de datos
     const id = crypto.randomUUID();
     const created_at = new Date().toISOString();
+    const cleanPhone = client_phone.replace(/\D/g, '');
 
     // Obtener precio correspondiente al servicio configurado en la base de datos
     const serviceResult = await db.execute({
@@ -166,15 +198,93 @@ export async function POST(request) {
     });
     const price = serviceResult.rows.length > 0 ? serviceResult.rows[0].price : (body.price || 0);
 
+    // Registrar o actualizar clienta en la tabla clients
     await db.execute({
-      sql: `INSERT INTO appointments (id, client_name, client_phone, client_email, appointment_date, appointment_time, service, price, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [id, client_name, client_phone, client_email || null, appointment_date, appointment_time, service, price, created_at],
+      sql: `INSERT INTO clients (phone, name, email, created_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(phone) DO UPDATE SET
+              name = excluded.name,
+              email = COALESCE(excluded.email, clients.email)`,
+      args: [cleanPhone, client_name.trim(), client_email ? client_email.trim() : null, created_at],
     });
+
+    // Validar si requiere cobro de seña con Mercado Pago
+    let paymentRequired = false;
+    let paymentUrl = null;
+
+    if (settings.mp_enabled && settings.mp_access_token) {
+      paymentRequired = true;
+      const protocol = request.headers.get('x-forwarded-proto') || 'http';
+      const host = request.headers.get('host');
+      const domain = `${protocol}://${host}`;
+
+      try {
+        const mpResponse = await fetch('https://api.mercadopago.com/v1/preferences', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${settings.mp_access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            items: [
+              {
+                id: 'deposit',
+                title: 'Seña de Turno - Las Manitos de Mili',
+                quantity: 1,
+                unit_price: settings.mp_deposit_amount,
+                currency_id: 'ARS',
+              }
+            ],
+            back_urls: {
+              success: `${domain}/api/mercadopago/feedback?status=success&id=${id}`,
+              failure: `${domain}/api/mercadopago/feedback?status=failure&id=${id}`,
+              pending: `${domain}/api/mercadopago/feedback?status=pending&id=${id}`,
+            },
+            auto_return: 'approved',
+            external_reference: id,
+            notification_url: `${domain}/api/mercadopago/webhook`,
+          }),
+        });
+
+        const mpData = await mpResponse.json();
+        if (!mpResponse.ok) {
+          console.error('Mercado Pago API error:', mpData);
+          throw new Error(mpData.message || 'Error al generar la preferencia de pago');
+        }
+
+        paymentUrl = mpData.init_point;
+      } catch (mpError) {
+        console.error('Failed to create Mercado Pago preference:', mpError);
+        return NextResponse.json({ error: 'Error al conectar con Mercado Pago para cobrar la seña' }, { status: 502 });
+      }
+    }
+
+    const appointmentStatus = paymentRequired ? 'pending_payment' : 'confirmed';
+
+    try {
+      await db.execute({
+        sql: `INSERT INTO appointments (id, client_name, client_phone, client_email, appointment_date, appointment_time, service, price, created_at, status)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [id, client_name.trim(), cleanPhone, client_email || null, appointment_date, appointment_time, service, price, created_at, appointmentStatus],
+      });
+    } catch (dbError) {
+      if (
+        dbError.message && (
+          dbError.message.includes('UNIQUE constraint failed') ||
+          dbError.code === 'SQLITE_CONSTRAINT' ||
+          dbError.code === 'SQLITE_CONSTRAINT_UNIQUE'
+        )
+      ) {
+        return NextResponse.json({ error: 'Este horario ya está reservado por otra clienta' }, { status: 409 });
+      }
+      throw dbError;
+    }
 
     return NextResponse.json({
       success: true,
-      appointment: { id, client_name, client_phone, client_email, appointment_date, appointment_time, service, price }
+      paymentRequired,
+      paymentUrl,
+      appointment: { id, client_name: client_name.trim(), client_phone: cleanPhone, client_email, appointment_date, appointment_time, service, price, status: appointmentStatus }
     });
 
   } catch (error) {

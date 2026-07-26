@@ -251,10 +251,17 @@ export default function BookingCalendar() {
       // Guardar usando el custom hook
       saveSession(clientName, clientPhone, clientEmail || '');
 
-      setBookingSuccess(data.appointment);
+      if (data.paymentRequired && data.paymentUrl) {
+        setError('Redirigiendo a Mercado Pago para abonar la seña...');
+        setTimeout(() => {
+          window.location.href = data.paymentUrl;
+        }, 1000);
+      } else {
+        setBookingSuccess(data.appointment);
+        setSubmitting(false);
+      }
     } catch (err) {
       setError(err.message);
-    } finally {
       setSubmitting(false);
     }
   };

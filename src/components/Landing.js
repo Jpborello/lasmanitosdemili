@@ -26,6 +26,23 @@ export default function Landing() {
   const [reviewError, setReviewError] = useState('');
   const [servicesList, setServicesList] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
+  
+  // Mercado Pago feedback parameters checking
+  const [paymentStatus, setPaymentStatus] = useState(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const payment = params.get('payment');
+      if (payment) {
+        setPaymentStatus(payment);
+        
+        // Clean URL query parameters
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+    }
+  }, []);
 
   // Estados del Overlay de Registro/Bienvenida
   const [isAdmin, setIsAdmin] = useState(false);
@@ -85,6 +102,22 @@ export default function Landing() {
         }
 
         setIsAdmin(true);
+      } else {
+        // Registrar a la clienta en la base de datos
+        const res = await fetch('/api/clients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: finalName,
+            phone: regPhone,
+            email: finalEmail || null,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Error al registrar tus datos en el servidor');
+        }
       }
 
       // Guardar datos usando el custom hook
@@ -263,6 +296,69 @@ export default function Landing() {
 
   return (
     <div className="animate-fade-in">
+      {paymentStatus && (
+        <div className={styles.lightboxOverlay} style={{ zIndex: 9999 }}>
+          <div className="glass-card-gold animate-scale-in" style={{ maxWidth: '450px', width: '90%', padding: '30px', textAlign: 'center', backgroundColor: 'var(--white)', position: 'relative' }}>
+            <button 
+              type="button"
+              className={styles.lightboxClose} 
+              onClick={() => setPaymentStatus(null)}
+              style={{ fontSize: '1.5rem', top: '10px', right: '15px' }}
+            >
+              ×
+            </button>
+            
+            {paymentStatus === 'success' && (
+              <>
+                <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🎉</div>
+                <h3 style={{ fontSize: '1.4rem', marginBottom: '10px', color: 'var(--text-dark)', fontFamily: 'var(--font-serif)' }}>¡Reserva Confirmada!</h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '20px' }}>
+                  El pago de tu seña se acreditó correctamente. Tu turno ha sido agendado y confirmado de manera exitosa. ¡Te esperamos para hacer brillar tus manos!
+                </p>
+              </>
+            )}
+            
+            {paymentStatus === 'pending' && (
+              <>
+                <div style={{ fontSize: '3rem', marginBottom: '15px' }}>⏳</div>
+                <h3 style={{ fontSize: '1.4rem', marginBottom: '10px', color: 'var(--text-dark)', fontFamily: 'var(--font-serif)' }}>Pago Pendiente</h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '20px' }}>
+                  Mercado Pago está procesando tu pago. Tu turno quedará confirmado automáticamente en cuanto se apruebe la transacción.
+                </p>
+              </>
+            )}
+            
+            {paymentStatus === 'failure' && (
+              <>
+                <div style={{ fontSize: '3rem', marginBottom: '15px' }}>❌</div>
+                <h3 style={{ fontSize: '1.4rem', marginBottom: '10px', color: 'var(--error)', fontFamily: 'var(--font-serif)' }}>Pago Cancelado</h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '20px' }}>
+                  No se pudo completar el pago de la seña. El turno no fue agendado. Por favor, intenta realizar la reserva de nuevo.
+                </p>
+              </>
+            )}
+            
+            {paymentStatus === 'error' && (
+              <>
+                <div style={{ fontSize: '3rem', marginBottom: '15px' }}>⚠️</div>
+                <h3 style={{ fontSize: '1.4rem', marginBottom: '10px', color: 'var(--error)', fontFamily: 'var(--font-serif)' }}>Error en el Pago</h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: '20px' }}>
+                  Hubo un inconveniente al procesar tu pago de seña. Si el dinero fue debitado de tu cuenta, por favor comunícate con Mili para confirmarlo.
+                </p>
+              </>
+            )}
+
+            <button 
+              type="button" 
+              className="btn-primary" 
+              onClick={() => setPaymentStatus(null)}
+              style={{ padding: '10px 30px', fontSize: '0.85rem' }}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <header className={styles.header}>

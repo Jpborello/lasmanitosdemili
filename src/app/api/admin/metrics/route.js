@@ -69,9 +69,10 @@ export async function GET() {
 
     // 4. Obtener Ranking de Clientas (por volumen de gasto)
     const rankingResult = await db.execute({
-      sql: `SELECT client_name, client_phone, COALESCE(SUM(price), 0) as total_spent, COUNT(*) as visits_count 
-            FROM appointments 
-            GROUP BY client_phone 
+      sql: `SELECT c.name as client_name, c.phone as client_phone, COALESCE(SUM(a.price), 0) as total_spent, COUNT(a.id) as visits_count 
+            FROM clients c
+            JOIN appointments a ON c.phone = a.client_phone 
+            GROUP BY c.phone 
             ORDER BY total_spent DESC 
             LIMIT 15`,
       args: [],
