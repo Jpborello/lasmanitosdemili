@@ -3,11 +3,9 @@ import { getDb } from '@/lib/db';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
 
-// Función para obtener la fecha formateada en YYYY-MM-DD en zona horaria local
+// Función para obtener la fecha formateada en YYYY-MM-DD en la zona horaria de la estética (Argentina)
 function getLocalDateString(date) {
-  const offset = date.getTimezoneOffset();
-  const localDate = new Date(date.getTime() - (offset * 60 * 1000));
-  return localDate.toISOString().split('T')[0];
+  return date.toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
 }
 
 export async function GET() {

@@ -129,7 +129,7 @@ export default function AdminDashboard() {
         url += '?all=true';
       }
 
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: 'no-store' });
       const data = await res.json();
       
       if (data.appointments) {
@@ -155,7 +155,7 @@ export default function AdminDashboard() {
     if (!authenticated) return;
     setLoadingReviews(true);
     try {
-      const res = await fetch('/api/admin/reviews');
+      const res = await fetch('/api/admin/reviews', { cache: 'no-store' });
       const data = await res.json();
       if (data.reviews) {
         setReviews(data.reviews);
@@ -178,7 +178,7 @@ export default function AdminDashboard() {
     if (!authenticated) return;
     setLoadingMetrics(true);
     try {
-      const res = await fetch('/api/admin/metrics');
+      const res = await fetch('/api/admin/metrics', { cache: 'no-store' });
       const data = await res.json();
       if (data.metrics) {
         setMetrics(data.metrics);
@@ -204,7 +204,7 @@ export default function AdminDashboard() {
     if (!authenticated) return;
     setLoadingServices(true);
     try {
-      const res = await fetch('/api/admin/services');
+      const res = await fetch('/api/admin/services', { cache: 'no-store' });
       const data = await res.json();
       if (data.services) {
         setServicesList(data.services);
@@ -227,7 +227,7 @@ export default function AdminDashboard() {
     if (!authenticated) return;
     setLoadingClients(true);
     try {
-      const res = await fetch('/api/admin/clients');
+      const res = await fetch('/api/admin/clients', { cache: 'no-store' });
       const data = await res.json();
       if (data.clients) {
         setClientsList(data.clients);

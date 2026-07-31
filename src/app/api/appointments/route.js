@@ -32,14 +32,18 @@ export async function GET(request) {
     // 1. Caso Admin: Ver lista completa de próximos turnos
     if (isAdmin && all) {
       // Obtener todos los turnos desde hoy en adelante (o todos ordenados)
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
       const result = await db.execute({
         sql: `SELECT * FROM appointments 
               WHERE appointment_date >= ? 
               ORDER BY appointment_date ASC, appointment_time ASC`,
         args: [today],
       });
-      return NextResponse.json({ appointments: result.rows });
+      return NextResponse.json({ appointments: result.rows }, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        }
+      });
     }
 
     // 2. Caso por Fecha (Público o Admin)
@@ -51,11 +55,19 @@ export async function GET(request) {
 
       if (isAdmin) {
         // El administrador ve todos los datos de las reservas
-        return NextResponse.json({ appointments: result.rows });
+        return NextResponse.json({ appointments: result.rows }, {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          }
+        });
       } else {
         // Las clientas sólo ven qué horas ya están reservadas para no mostrarlas en el calendario
         const bookedTimes = result.rows.map(row => row.appointment_time);
-        return NextResponse.json({ bookedTimes });
+        return NextResponse.json({ bookedTimes }, {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          }
+        });
       }
     }
 
@@ -150,8 +162,8 @@ export async function POST(request) {
     }
 
     // 3. Validar horas según el día
-    const validWeekdayTimes = ['08:00', '10:00', '14:00', '16:00', '18:00'];
-    const validSaturdayTimes = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'];
+    const validWeekdayTimes = ['08:00', '10:00', '14:30', '16:00', '18:00'];
+    const validSaturdayTimes = ['08:00', '10:00', '12:00', '14:30', '16:00', '18:00'];
 
     if (dayOfWeek === 6) {
       // Sábado
@@ -171,7 +183,7 @@ export async function POST(request) {
     }
 
     // 3. Validar que la fecha no sea pasada
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
     if (appointment_date < todayStr) {
       return NextResponse.json({ error: 'No se pueden reservar turnos en fechas pasadas' }, { status: 400 });
     }

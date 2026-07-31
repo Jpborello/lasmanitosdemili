@@ -35,7 +35,9 @@ export default function Landing() {
       const params = new URLSearchParams(window.location.search);
       const payment = params.get('payment');
       if (payment) {
-        setPaymentStatus(payment);
+        setTimeout(() => {
+          setPaymentStatus(payment);
+        }, 0);
         
         // Clean URL query parameters
         const newUrl = window.location.pathname;

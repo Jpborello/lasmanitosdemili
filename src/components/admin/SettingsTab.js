@@ -33,21 +33,27 @@ export default function SettingsTab({
   const [localMpPublicKey, setLocalMpPublicKey] = useState(mpPublicKey || '');
   const [localMpDepositAmount, setLocalMpDepositAmount] = useState(mpDepositAmount || 2000);
 
-  useEffect(() => {
-    if (mpEnabled !== undefined) setLocalMpEnabled(mpEnabled);
-  }, [mpEnabled]);
+  const [prevMpEnabled, setPrevMpEnabled] = useState(mpEnabled);
+  const [prevMpAccessToken, setPrevMpAccessToken] = useState(mpAccessToken);
+  const [prevMpPublicKey, setPrevMpPublicKey] = useState(mpPublicKey);
+  const [prevMpDepositAmount, setPrevMpDepositAmount] = useState(mpDepositAmount);
 
-  useEffect(() => {
-    if (mpAccessToken !== undefined) setLocalMpAccessToken(mpAccessToken);
-  }, [mpAccessToken]);
-
-  useEffect(() => {
-    if (mpPublicKey !== undefined) setLocalMpPublicKey(mpPublicKey);
-  }, [mpPublicKey]);
-
-  useEffect(() => {
-    if (mpDepositAmount !== undefined) setLocalMpDepositAmount(mpDepositAmount);
-  }, [mpDepositAmount]);
+  if (mpEnabled !== prevMpEnabled) {
+    setPrevMpEnabled(mpEnabled);
+    setLocalMpEnabled(mpEnabled || false);
+  }
+  if (mpAccessToken !== prevMpAccessToken) {
+    setPrevMpAccessToken(mpAccessToken);
+    setLocalMpAccessToken(mpAccessToken || '');
+  }
+  if (mpPublicKey !== prevMpPublicKey) {
+    setPrevMpPublicKey(mpPublicKey);
+    setLocalMpPublicKey(mpPublicKey || '');
+  }
+  if (mpDepositAmount !== prevMpDepositAmount) {
+    setPrevMpDepositAmount(mpDepositAmount);
+    setLocalMpDepositAmount(mpDepositAmount || 2000);
+  }
 
   const handleDateSubmit = (e) => {
     e.preventDefault();
@@ -98,8 +104,8 @@ export default function SettingsTab({
           Horarios del Estudio
         </h3>
         <ul style={{ fontSize: '0.85rem', color: 'var(--text-muted)', listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <li>• Lunes a Viernes: 8:00, 10:00, 14:00, 16:00 y {enable18Weekday ? '18:00' : '18:00 (Inactivo)'} hs.</li>
-          <li>• Sábados: 8:00, 10:00, 12:00, 14:00, 16:00 y 18:00 hs.</li>
+          <li>• Lunes a Viernes: 8:00, 10:00, 14:30, 16:00 y {enable18Weekday ? '18:00' : '18:00 (Inactivo)'} hs.</li>
+          <li>• Sábados: 8:00, 10:00, 12:00, 14:30, 16:00 y 18:00 hs.</li>
           <li>• Domingos: Cerrado.</li>
         </ul>
       </div>
@@ -240,7 +246,7 @@ export default function SettingsTab({
               onChange={(e) => setSlotTimeToBlock(e.target.value)}
               disabled={actionLoading}
             >
-              {['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'].map(t => (
+              {['08:00', '10:00', '12:00', '14:30', '16:00', '18:00'].map(t => (
                 <option key={t} value={t}>{t} hs</option>
               ))}
             </select>

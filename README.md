@@ -113,8 +113,8 @@ El flujo de navegación público está optimizado para agendar turnos de forma e
     *   **Paso 1**: La clienta elige un Servicio de la lista.
     *   **Paso 2**: Elige una fecha disponible en el calendario (los domingos y fechas bloqueadas por vacaciones se muestran deshabilitados).
     *   **Paso 3**: Al hacer clic en un día, se realiza una petición API para ver qué turnos ya están tomados y se generan dinámicamente las horas libres:
-        *   *Lunes a Viernes*: `08:00`, `10:00`, `14:00`, `16:00` y `18:00` (esta última si está activa).
-        *   *Sábados*: `08:00`, `10:00`, `12:00`, `14:00`, `16:00` y `18:00`.
+        *   *Lunes a Viernes*: `08:00`, `10:00`, `14:30`, `16:00` y `18:00` (esta última si está activa).
+        *   *Sábados*: `08:00`, `10:00`, `12:00`, `14:30`, `16:00` y `18:00`.
     *   **Paso 4**: Los datos del formulario se pre-completan solos gracias al almacenamiento del onboarding, y si ya había agendado previamente, la API de autocompletado busca su última sesión para evitar repetir tipeos. Se confirma el turno y se guarda en la base de datos de manera inmediata.
 4.  **Opiniones (Reviews)**:
     Cualquier clienta puede rellenar un formulario para dejar una valoración. Su comentario ingresa con estado `'pending'` para que la administradora lo apruebe antes de aparecer públicamente en la home.

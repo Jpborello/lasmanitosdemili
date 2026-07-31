@@ -85,12 +85,18 @@ export default function BookingCalendar() {
       setError('');
       setSelectedTime(null); // Resetear hora al cambiar fecha
       
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      fetch(`/api/appointments?date=${dateStr}`)
+      const yearNum = selectedDate.getFullYear();
+      const monthNum = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const dayNumStr = String(selectedDate.getDate()).padStart(2, '0');
+      const dateStr = `${yearNum}-${monthNum}-${dayNumStr}`;
+      fetch(`/api/appointments?date=${dateStr}`, { cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
           if (data.bookedTimes) {
             setBookedTimes(data.bookedTimes);
+          } else if (data.appointments) {
+            const times = data.appointments.map(app => app.appointment_time);
+            setBookedTimes(times);
           } else {
             setBookedTimes([]);
           }
@@ -195,11 +201,11 @@ export default function BookingCalendar() {
 
     let times = [];
     if (dayOfWeek === 6) {
-      // Sábados: 8, 10, 12, 14, 16, 18
-      times = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'];
+      // Sábados: 8, 10, 12, 14:30, 16, 18
+      times = ['08:00', '10:00', '12:00', '14:30', '16:00', '18:00'];
     } else {
-      // Lunes a Viernes: 8, 10, 14, 16, 18 (18 toggleable)
-      times = ['08:00', '10:00', '14:00', '16:00'];
+      // Lunes a Viernes: 8, 10, 14:30, 16, 18 (18 toggleable)
+      times = ['08:00', '10:00', '14:30', '16:00'];
       if (enable18Weekday) {
         times.push('18:00');
       }
@@ -226,7 +232,10 @@ export default function BookingCalendar() {
     setSubmitting(true);
     setError('');
 
-    const dateStr = selectedDate.toISOString().split('T')[0];
+    const yearNum = selectedDate.getFullYear();
+    const monthNum = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const dayNumStr = String(selectedDate.getDate()).padStart(2, '0');
+    const dateStr = `${yearNum}-${monthNum}-${dayNumStr}`;
 
     try {
       const response = await fetch('/api/appointments', {
