@@ -15,7 +15,7 @@ const montserrat = Montserrat({
 
 export const metadata = {
   title: "Las Manitos de Mili | Manicuría Profesional en Rosario - Turnos Online",
-  description: "Estudio de manicuría premium en Rosario, Santa Fe. Reserva tu turno online de Semipermanente, Kapping Poligel, Soft Gel y Esculpidas. Uñas perfectas y duraderas con Mili Nails.",
+  description: "Estudio de manicuría premium en Rosario, Santa Fe. Reserva tu turno online de Semipermanente, Kapping Poligel, Soft Gel y Esculpidas. Uñas perfectas y duraderas con Las Manitos de Mili.",
   keywords: [
     "manicura rosario",
     "nails rosario",
@@ -31,7 +31,7 @@ export const metadata = {
     "pedicura rosario",
     "belleza de manos rosario"
   ],
-  authors: [{ name: "Sami (Mili Nails)" }],
+  authors: [{ name: "Sami (Las Manitos de Mili)" }],
   creator: "neo core sys",
   robots: {
     index: true,

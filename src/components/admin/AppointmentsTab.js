@@ -33,7 +33,7 @@ export default function AppointmentsTab({
       month: 'short',
     });
     const message = encodeURIComponent(
-      `¡Hola ${name}! Te escribo de Mili Nails para confirmarte y recordarte tu turno del día ${formattedDate} a las ${time} hs.`
+      `¡Hola ${name}! Te escribo de Las Manitos de Mili para confirmarte y recordarte tu turno del día ${formattedDate} a las ${time} hs.`
     );
     return `https://wa.me/${cleanedPhone}?text=${message}`;
   };

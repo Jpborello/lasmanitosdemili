@@ -71,7 +71,7 @@ export default function AdminLogin() {
         <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--accent-rose)', marginBottom: '-10px' }}>
           <Sparkles size={40} />
         </div>
-        <h1 className={styles.loginTitle}>Mili Nails</h1>
+        <h1 className={styles.loginTitle}>Las Manitos de Mili</h1>
         <p className={styles.loginSubtitle}>Panel de Administración</p>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

@@ -402,7 +402,7 @@ export default function Landing() {
           <div className={styles.heroImageContainer}>
             <img 
               src="/images/sami.jpg" 
-              alt="Sami trabajando en Mili Nails" 
+              alt="Sami trabajando en Las Manitos de Mili" 
               className={styles.heroImage}
               style={{ objectPosition: 'center 20%' }}
             />
@@ -537,7 +537,7 @@ export default function Landing() {
                 title="Haz clic para ampliar"
               >
                 <img src={img.src} alt={img.title} className={styles.galleryImg} />
-                <div className={styles.watermark}>Mili Nails</div>
+                <div className={styles.watermark}>Las Manitos de Mili</div>
                 <div className={styles.galleryOverlay}>
                   <span className={styles.galleryTitle}>{img.title}</span>
                 </div>
@@ -564,7 +564,7 @@ export default function Landing() {
             <img src={selectedImage.src} alt={selectedImage.title} className={styles.lightboxImg} />
             <div className={styles.lightboxCaption}>
               <h3>{selectedImage.title}</h3>
-              <p>Mili Nails - Trabajo Real</p>
+              <p>Las Manitos de Mili - Trabajo Real</p>
             </div>
           </div>
         </div>
@@ -729,7 +729,7 @@ export default function Landing() {
               @las_manitosde_mili
             </a>
           </div>
-          <p>© {new Date().getFullYear()} <a href="/admin/login" style={{ color: 'inherit', textDecoration: 'none', cursor: 'default' }}>Mili Nails</a>. Creado con mucho <Heart size={12} style={{ display: 'inline', color: 'var(--accent-rose)', fill: 'var(--accent-rose)' }} /> para hacerte brillar.</p>
+          <p>© {new Date().getFullYear()} <a href="/admin/login" style={{ color: 'inherit', textDecoration: 'none', cursor: 'default' }}>Las Manitos de Mili</a>. Creado con mucho <Heart size={12} style={{ display: 'inline', color: 'var(--accent-rose)', fill: 'var(--accent-rose)' }} /> para hacerte brillar.</p>
           <p style={{ marginTop: '8px', fontSize: '0.8rem', opacity: 0.8 }}>
             Proyecto creado por{' '}
             <a 

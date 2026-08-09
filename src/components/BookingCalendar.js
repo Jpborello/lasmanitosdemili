@@ -316,7 +316,7 @@ export default function BookingCalendar() {
           <Sparkles size={48} />
         </div>
         <h2 className={styles.successTitle}>¡Turno Confirmado!</h2>
-        <p>Tu reserva ha sido registrada con éxito para Mili Nails.</p>
+        <p>Tu reserva ha sido registrada con éxito para Las Manitos de Mili.</p>
 
         <div className={styles.ticketDetails}>
           <div className={styles.ticketRow}>

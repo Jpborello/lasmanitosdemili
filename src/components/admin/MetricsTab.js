@@ -11,7 +11,7 @@ export default function MetricsTab({
 }) {
   const getSimpleWhatsAppLink = (phone, name) => {
     const cleanedPhone = phone.replace(/\D/g, '');
-    const message = encodeURIComponent(`¡Hola ${name}! Te escribo desde Mili Nails para saludarte y agradecerte por ser una de nuestras clientas más fieles. ♥`);
+    const message = encodeURIComponent(`¡Hola ${name}! Te escribo desde Las Manitos de Mili para saludarte y agradecerte por ser una de nuestras clientas más fieles. ♥`);
     return `https://wa.me/${cleanedPhone}?text=${message}`;
   };
 

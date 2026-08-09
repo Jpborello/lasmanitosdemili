@@ -14,7 +14,7 @@ export default function ClientsTab({
 
   const getSimpleWhatsAppLink = (phone, name) => {
     const cleanedPhone = phone.replace(/\D/g, '');
-    const message = encodeURIComponent(`¡Hola ${name}! Te escribo desde Mili Nails. Espero que estés muy bien. ♥`);
+    const message = encodeURIComponent(`¡Hola ${name}! Te escribo desde Las Manitos de Mili. Espero que estés muy bien. ♥`);
     return `https://wa.me/${cleanedPhone}?text=${message}`;
   };
 
