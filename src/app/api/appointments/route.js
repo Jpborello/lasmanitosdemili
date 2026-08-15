@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
+import { notifyAdminNewAppointment, sendClientConfirmation } from '@/lib/whatsapp';
+import { sendClientConfirmationEmail } from '@/lib/email';
+import { isAdminAuthenticated } from '@/lib/auth';
 
 // GET: Obtener turnos
 export async function GET(request) {
@@ -12,17 +15,15 @@ export async function GET(request) {
 
     // Verificar si es administrador mediante cookie
     const cookieStore = await cookies();
-    const token = cookieStore.get('admin_token')?.value;
-    const adminHash = crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
-    const isAdmin = token && token === adminHash;
+    const isAdmin = await isAdminAuthenticated(cookieStore);
 
     const db = await getDb();
 
     // Limpiar reservas pendientes expiradas (más de 15 minutos sin pagar)
     try {
       await db.execute(`
-        DELETE FROM appointments 
-        WHERE status = 'pending_payment' 
+        DELETE FROM appointments
+        WHERE status = 'pending_payment'
           AND datetime(created_at) <= datetime('now', '-15 minutes')
       `);
     } catch (cleanError) {
@@ -34,8 +35,8 @@ export async function GET(request) {
       // Obtener todos los turnos desde hoy en adelante (o todos ordenados)
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
       const result = await db.execute({
-        sql: `SELECT * FROM appointments 
-              WHERE appointment_date >= ? 
+        sql: `SELECT * FROM appointments
+              WHERE appointment_date >= ?
               ORDER BY appointment_date ASC, appointment_time ASC`,
         args: [today],
       });
@@ -104,14 +105,14 @@ export async function POST(request) {
     // Limpiar reservas pendientes expiradas (más de 15 minutos sin pagar)
     try {
       await db.execute(`
-        DELETE FROM appointments 
-        WHERE status = 'pending_payment' 
+        DELETE FROM appointments
+        WHERE status = 'pending_payment'
           AND datetime(created_at) <= datetime('now', '-15 minutes')
       `);
     } catch (cleanError) {
       console.error('Error cleaning up expired pending appointments in POST:', cleanError);
     }
-    
+
     // Obtener configuraciones de bloqueos y Mercado Pago
     const settingsResult = await db.execute('SELECT key, value FROM settings');
     const settings = {
@@ -119,6 +120,7 @@ export async function POST(request) {
       blocked_weekdays: '0', // 0 = Domingo cerrado por defecto
       blocked_dates: '',
       blocked_slots: '',
+      extra_slots: '',
       mp_enabled: false,
       mp_access_token: '',
       mp_deposit_amount: 2000,
@@ -132,6 +134,8 @@ export async function POST(request) {
         settings.blocked_dates = row.value;
       } else if (row.key === 'blocked_slots') {
         settings.blocked_slots = row.value;
+      } else if (row.key === 'extra_slots') {
+        settings.extra_slots = row.value;
       } else if (row.key === 'mp_enabled') {
         settings.mp_enabled = row.value === 'true';
       } else if (row.key === 'mp_access_token') {
@@ -165,19 +169,26 @@ export async function POST(request) {
     const validWeekdayTimes = ['08:00', '10:00', '14:30', '16:00', '18:00'];
     const validSaturdayTimes = ['08:00', '10:00', '12:00', '14:30', '16:00', '18:00'];
 
+    // Horarios extra habilitados puntualmente para esta fecha específica (fuera del horario fijo,
+    // o incluso el 18:00hs de semana cuando el interruptor general está apagado)
+    const extraSlotsArray = settings.extra_slots.split(',').map(s => s.trim()).filter(Boolean);
+    const isExtraSlotForThisDate = extraSlotsArray.includes(`${appointment_date}_${appointment_time}`);
+
     if (dayOfWeek === 6) {
       // Sábado
-      if (!validSaturdayTimes.includes(appointment_time)) {
+      if (!validSaturdayTimes.includes(appointment_time) && !isExtraSlotForThisDate) {
         return NextResponse.json({ error: 'Horario inválido para días sábados' }, { status: 400 });
       }
     } else {
       // Lunes a Viernes
-      if (!validWeekdayTimes.includes(appointment_time)) {
+      const isStandardWeekdayTime = validWeekdayTimes.includes(appointment_time);
+      if (!isStandardWeekdayTime && !isExtraSlotForThisDate) {
         return NextResponse.json({ error: 'Horario inválido para días de semana' }, { status: 400 });
       }
 
-      // Si es el turno de las 18:00hs, validar si está activo
-      if (appointment_time === '18:00' && !settings.enable_18_weekday) {
+      // Si es el turno de las 18:00hs dentro del horario estándar, validar si está activo
+      // (si se habilitó explícitamente como horario extra para esta fecha, se permite igual)
+      if (appointment_time === '18:00' && isStandardWeekdayTime && !settings.enable_18_weekday && !isExtraSlotForThisDate) {
         return NextResponse.json({ error: 'El turno de las 18:00hs en días de semana no está disponible actualmente' }, { status: 400 });
       }
     }
@@ -279,6 +290,16 @@ export async function POST(request) {
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [id, client_name.trim(), cleanPhone, client_email || null, appointment_date, appointment_time, service, price, created_at, appointmentStatus],
       });
+
+      // Si el turno queda confirmado automáticamente (sin seña previa), enviar WhatsApps y email
+      if (appointmentStatus === 'confirmed') {
+        const appointmentObj = { id, client_name: client_name.trim(), client_phone: cleanPhone, client_email, appointment_date, appointment_time, service, price, status: appointmentStatus };
+        notifyAdminNewAppointment(appointmentObj).catch(err => console.error('Error enviando WhatsApp a Mili:', err));
+        sendClientConfirmation(appointmentObj).catch(err => console.error('Error enviando WhatsApp a clienta:', err));
+        if (client_email) {
+          sendClientConfirmationEmail(appointmentObj).catch(err => console.error('Error enviando email a clienta:', err));
+        }
+      }
     } catch (dbError) {
       if (
         dbError.message && (
@@ -305,6 +326,44 @@ export async function POST(request) {
   }
 }
 
+// PATCH: Actualizar el estado de un turno (ej. marcar como 'no_show'), requiere admin
+export async function PATCH(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Falta el ID del turno' }, { status: 400 });
+    }
+
+    const cookieStore = await cookies();
+    const isAdmin = await isAdminAuthenticated(cookieStore);
+
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { status } = body;
+
+    const allowedStatuses = ['confirmed', 'no_show'];
+    if (!allowedStatuses.includes(status)) {
+      return NextResponse.json({ error: 'Estado inválido' }, { status: 400 });
+    }
+
+    const db = await getDb();
+    await db.execute({
+      sql: 'UPDATE appointments SET status = ? WHERE id = ?',
+      args: [status, id],
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error in appointments PATCH:', error);
+    return NextResponse.json({ error: 'Error al actualizar el turno' }, { status: 500 });
+  }
+}
+
 // DELETE: Cancelar un turno (requiere autenticación de admin)
 export async function DELETE(request) {
   try {
@@ -316,10 +375,9 @@ export async function DELETE(request) {
     }
 
     const cookieStore = await cookies();
-    const token = cookieStore.get('admin_token')?.value;
-    const adminHash = crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
+    const isAdmin = await isAdminAuthenticated(cookieStore);
 
-    if (!token || token !== adminHash) {
+    if (!isAdmin) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 

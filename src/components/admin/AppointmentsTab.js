@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar, Clock, Phone, Trash2, RefreshCw } from 'lucide-react';
+import { Calendar, Clock, Phone, Trash2, RefreshCw, UserX, RotateCcw } from 'lucide-react';
 import styles from '@/styles/admin.module.css';
 
 const SERVICES_MAP = {
@@ -14,6 +14,12 @@ const SERVICES_MAP = {
   pedi_completa_semi: 'Pedicura Completa + Semipermanente',
 };
 
+const STATUS_LABELS = {
+  confirmed: { label: 'Confirmado', bg: 'rgba(136, 167, 131, 0.15)', color: 'var(--success)' },
+  pending_payment: { label: 'Pendiente de pago', bg: 'rgba(197, 168, 128, 0.15)', color: 'var(--accent-gold)' },
+  no_show: { label: 'No se presentó', bg: 'rgba(203, 120, 112, 0.15)', color: 'var(--error)' },
+};
+
 export default function AppointmentsTab({
   appointments,
   selectedDate,
@@ -23,6 +29,7 @@ export default function AppointmentsTab({
   loadingData,
   fetchAppointments,
   handleCancelAppointment,
+  handleMarkNoShow,
   actionLoading,
 }) {
   const getWhatsAppLink = (phone, name, date, time) => {
@@ -152,8 +159,23 @@ export default function AppointmentsTab({
                   )}
                   
                   <span className={styles.clientName}>{appt.client_name}</span>
+
+                  {appt.status && appt.status !== 'confirmed' && STATUS_LABELS[appt.status] && (
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                        fontWeight: 600,
+                        backgroundColor: STATUS_LABELS[appt.status].bg,
+                        color: STATUS_LABELS[appt.status].color,
+                      }}
+                    >
+                      {STATUS_LABELS[appt.status].label}
+                    </span>
+                  )}
                 </div>
-                
+
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                   Servicio: <strong style={{ color: 'var(--text-dark)' }}>{SERVICES_MAP[appt.service] || appt.service}</strong>
                   {appt.price > 0 && (
@@ -180,6 +202,29 @@ export default function AppointmentsTab({
                 >
                   <Phone size={16} /> Remind
                 </a>
+
+                {/* Botón No-show */}
+                {appt.status === 'no_show' ? (
+                  <button
+                    type="button"
+                    className={styles.noShowBtn}
+                    onClick={() => handleMarkNoShow(appt.id, false)}
+                    disabled={actionLoading}
+                    title="Deshacer: marcar como confirmado de nuevo"
+                  >
+                    <RotateCcw size={16} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.noShowBtn}
+                    onClick={() => handleMarkNoShow(appt.id, true)}
+                    disabled={actionLoading}
+                    title="Marcar que la clienta no se presentó"
+                  >
+                    <UserX size={16} />
+                  </button>
+                )}
 
                 {/* Botón Cancelar */}
                 <button

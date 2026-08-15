@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Clock, Sparkles } from 'lucide-react';
 import styles from '@/styles/booking.module.css';
 import { DEFAULT_SERVICES } from '@/lib/constants';
 import { useClientSession } from '@/hooks/useClientSession';
+import { fireConfetti } from '@/lib/confetti';
 
 export default function BookingCalendar() {
   const {
@@ -30,10 +31,18 @@ export default function BookingCalendar() {
   const [blockedWeekdays, setBlockedWeekdays] = useState([0]); // 0 = Domingo cerrado por defecto
   const [blockedDates, setBlockedDates] = useState([]);
   const [blockedSlots, setBlockedSlots] = useState([]);
+  const [extraSlots, setExtraSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(null);
   const [error, setError] = useState('');
+
+  // Celebración visual al confirmar un turno con éxito
+  useEffect(() => {
+    if (bookingSuccess) {
+      fireConfetti();
+    }
+  }, [bookingSuccess]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -57,6 +66,10 @@ export default function BookingCalendar() {
         if (data.blocked_slots !== undefined) {
           const list = data.blocked_slots.split(',').map(s => s.trim()).filter(Boolean);
           setBlockedSlots(list);
+        }
+        if (data.extra_slots !== undefined) {
+          const list = data.extra_slots.split(',').map(s => s.trim()).filter(Boolean);
+          setExtraSlots(list);
         }
       })
       .catch(err => console.error('Error fetching settings:', err));
@@ -210,6 +223,19 @@ export default function BookingCalendar() {
         times.push('18:00');
       }
     }
+
+    // Sumar horarios extra habilitados puntualmente para este día (ej. un 18:00 excepcional
+    // aunque el interruptor general esté apagado, u otro horario fuera de lo habitual)
+    const prefix = `${dateStr}_`;
+    extraSlots.forEach(entry => {
+      if (entry.startsWith(prefix)) {
+        const extraTime = entry.slice(prefix.length);
+        if (extraTime && !times.includes(extraTime)) {
+          times.push(extraTime);
+        }
+      }
+    });
+    times.sort();
 
     // Filtrar los slots que estén explícitamente bloqueados
     return times.filter(t => !blockedSlots.includes(`${dateStr}_${t}`));

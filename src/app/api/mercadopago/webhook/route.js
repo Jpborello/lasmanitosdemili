@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { notifyAdminNewAppointment, sendClientConfirmation } from '@/lib/whatsapp';
+import { sendClientConfirmationEmail } from '@/lib/email';
 
 export async function POST(request) {
   try {
@@ -40,7 +42,7 @@ export async function POST(request) {
     if (!mpResponse.ok) {
       const errorText = await mpResponse.text();
       console.error('Failed to query payment status from Mercado Pago:', errorText);
-      
+
       // Si es un error de cliente (400, 404, etc.), no reintentamos (retornamos 200)
       if (mpResponse.status >= 400 && mpResponse.status < 500 && mpResponse.status !== 429) {
         return NextResponse.json({ error: 'Consulta de pago inválida para el webhook', details: errorText });
@@ -54,14 +56,37 @@ export async function POST(request) {
     // Si el pago está aprobado, confirmar el turno correspondiente
     if (paymentData.status === 'approved') {
       const appointmentId = paymentData.external_reference;
-      
+
       if (appointmentId) {
-        // Actualizar el estado del turno a 'confirmed'
-        await db.execute({
-          sql: "UPDATE appointments SET status = 'confirmed' WHERE id = ?",
+        // Obtener el turno actual ANTES de actualizar, para chequear si ya estaba confirmado.
+        // Mercado Pago puede reintentar el mismo webhook varias veces; sin este chequeo
+        // se le reenviarían los WhatsApp de confirmación repetidamente a la clienta y a Mili.
+        const apptResult = await db.execute({
+          sql: 'SELECT * FROM appointments WHERE id = ?',
           args: [appointmentId],
         });
-        console.log(`Appointment ${appointmentId} confirmed successfully via webhook.`);
+
+        if (apptResult.rows.length === 0) {
+          console.warn(`Appointment ${appointmentId} no encontrado para el pago ${paymentId}.`);
+        } else {
+          const appt = apptResult.rows[0];
+
+          if (appt.status === 'confirmed') {
+            console.log(`Appointment ${appointmentId} ya estaba confirmado; se ignora notificación duplicada del webhook.`);
+          } else {
+            await db.execute({
+              sql: "UPDATE appointments SET status = 'confirmed' WHERE id = ?",
+              args: [appointmentId],
+            });
+            console.log(`Appointment ${appointmentId} confirmed successfully via webhook.`);
+
+            notifyAdminNewAppointment(appt).catch(err => console.error('Error enviando WhatsApp admin en webhook:', err));
+            sendClientConfirmation(appt).catch(err => console.error('Error enviando WhatsApp clienta en webhook:', err));
+            if (appt.client_email) {
+              sendClientConfirmationEmail(appt).catch(err => console.error('Error enviando email a clienta en webhook:', err));
+            }
+          }
+        }
       } else {
         console.warn('Payment approved but external_reference (appointment ID) is missing.');
       }

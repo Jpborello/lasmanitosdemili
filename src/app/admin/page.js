@@ -45,6 +45,7 @@ export default function AdminDashboard() {
   const [blockedWeekdays, setBlockedWeekdays] = useState([0]); // 0 = Domingo cerrado por defecto
   const [blockedDates, setBlockedDates] = useState([]);
   const [blockedSlots, setBlockedSlots] = useState([]);
+  const [extraSlots, setExtraSlots] = useState([]);
   const [mpEnabled, setMpEnabled] = useState(false);
   const [mpAccessToken, setMpAccessToken] = useState('');
   const [mpPublicKey, setMpPublicKey] = useState('');
@@ -100,6 +101,10 @@ export default function AdminDashboard() {
         if (data.blocked_slots !== undefined) {
           const list = data.blocked_slots.split(',').map(s => s.trim()).filter(Boolean);
           setBlockedSlots(list);
+        }
+        if (data.extra_slots !== undefined) {
+          const list = data.extra_slots.split(',').map(s => s.trim()).filter(Boolean);
+          setExtraSlots(list);
         }
         if (data.mp_enabled !== undefined) {
           setMpEnabled(data.mp_enabled);
@@ -453,6 +458,62 @@ export default function AdminDashboard() {
     }
   };
 
+  // Agregar un horario extra (fecha + hora puntual, fuera del horario fijo habitual)
+  const handleAddExtraSlot = async (dateStr, timeStr) => {
+    if (!dateStr || !timeStr) return;
+
+    const slotKey = `${dateStr}_${timeStr}`;
+    if (extraSlots.includes(slotKey)) {
+      alert('Ese horario extra ya está agregado para esta fecha.');
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const nextExtra = [...extraSlots, slotKey];
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extra_slots: nextExtra.join(',') }),
+      });
+
+      if (res.ok) {
+        setExtraSlots(nextExtra);
+      } else {
+        alert('No se pudo agregar el horario extra.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error al agregar el horario extra.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Quitar un horario extra
+  const handleRemoveExtraSlot = async (slotKey) => {
+    setActionLoading(true);
+    try {
+      const nextExtra = extraSlots.filter(s => s !== slotKey);
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extra_slots: nextExtra.join(',') }),
+      });
+
+      if (res.ok) {
+        setExtraSlots(nextExtra);
+      } else {
+        alert('No se pudo quitar el horario extra.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error al quitar el horario extra.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Guardar configuración de Mercado Pago
   const handleSaveMercadoPago = async (config) => {
     setActionLoading(true);
@@ -507,6 +568,29 @@ export default function AdminDashboard() {
         fetchAppointments();
       } else {
         alert('Error al cancelar el turno.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 8b. Marcar/desmarcar un turno como no-show (clienta no se presentó)
+  const handleMarkNoShow = async (id, markAsNoShow) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/appointments?id=${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: markAsNoShow ? 'no_show' : 'confirmed' }),
+      });
+
+      if (res.ok) {
+        fetchAppointments();
+      } else {
+        alert('No se pudo actualizar el turno.');
       }
     } catch (err) {
       console.error(err);
@@ -599,98 +683,24 @@ export default function AdminDashboard() {
       </header>
 
       {/* Tabs Selector */}
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '30px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          style={{
-            background: 'none',
-            border: 'none',
-            fontFamily: 'var(--font-serif)',
-            fontSize: '1.2rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            paddingBottom: '8px',
-            color: activeTab === 'appointments' ? 'var(--text-dark)' : 'var(--text-muted)',
-            borderBottom: activeTab === 'appointments' ? '2px solid var(--accent-rose)' : 'none',
-            transition: 'var(--transition-smooth)'
-          }}
-          onClick={() => setActiveTab('appointments')}
-        >
-          Gestionar Turnos
-        </button>
-        <button
-          type="button"
-          style={{
-            background: 'none',
-            border: 'none',
-            fontFamily: 'var(--font-serif)',
-            fontSize: '1.2rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            paddingBottom: '8px',
-            color: activeTab === 'reviews' ? 'var(--text-dark)' : 'var(--text-muted)',
-            borderBottom: activeTab === 'reviews' ? '2px solid var(--accent-rose)' : 'none',
-            transition: 'var(--transition-smooth)'
-          }}
-          onClick={() => setActiveTab('reviews')}
-        >
-          Gestionar Opiniones
-        </button>
-        <button
-          type="button"
-          style={{
-            background: 'none',
-            border: 'none',
-            fontFamily: 'var(--font-serif)',
-            fontSize: '1.2rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            paddingBottom: '8px',
-            color: activeTab === 'metrics' ? 'var(--text-dark)' : 'var(--text-muted)',
-            borderBottom: activeTab === 'metrics' ? '2px solid var(--accent-rose)' : 'none',
-            transition: 'var(--transition-smooth)'
-          }}
-          onClick={() => setActiveTab('metrics')}
-        >
-          Métricas y Sorteos
-        </button>
-        <button
-          type="button"
-          style={{
-            background: 'none',
-            border: 'none',
-            fontFamily: 'var(--font-serif)',
-            fontSize: '1.2rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            paddingBottom: '8px',
-            color: activeTab === 'clients' ? 'var(--text-dark)' : 'var(--text-muted)',
-            borderBottom: activeTab === 'clients' ? '2px solid var(--accent-rose)' : 'none',
-            transition: 'var(--transition-smooth)'
-          }}
-          onClick={() => setActiveTab('clients')}
-        >
-          Gestionar Clientas
-        </button>
-        <button
-          type="button"
-          style={{
-            background: 'none',
-            border: 'none',
-            fontFamily: 'var(--font-serif)',
-            fontSize: '1.2rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            paddingBottom: '8px',
-            color: activeTab === 'services' ? 'var(--text-dark)' : 'var(--text-muted)',
-            borderBottom: activeTab === 'services' ? '2px solid var(--accent-rose)' : 'none',
-            transition: 'var(--transition-smooth)'
-          }}
-          onClick={() => setActiveTab('services')}
-        >
-          Precios y Servicios
-        </button>
-      </div>
+      <nav className={styles.tabsNav}>
+        {[
+          { key: 'appointments', label: 'Gestionar Turnos' },
+          { key: 'reviews', label: 'Gestionar Opiniones' },
+          { key: 'metrics', label: 'Métricas y Sorteos' },
+          { key: 'clients', label: 'Gestionar Clientas' },
+          { key: 'services', label: 'Precios y Servicios' },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            type="button"
+            className={`${styles.tabBtn} ${activeTab === tab.key ? styles.tabBtnActive : ''}`}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
 
       {/* Tab 1: Appointments Panel */}
       {activeTab === 'appointments' && (
@@ -700,6 +710,7 @@ export default function AdminDashboard() {
             blockedWeekdays={blockedWeekdays}
             blockedDates={blockedDates}
             blockedSlots={blockedSlots}
+            extraSlots={extraSlots}
             mpEnabled={mpEnabled}
             mpAccessToken={mpAccessToken}
             mpPublicKey={mpPublicKey}
@@ -711,6 +722,8 @@ export default function AdminDashboard() {
             onRemoveBlockedDate={handleRemoveBlockedDate}
             onAddBlockedSlot={handleAddBlockedSlot}
             onRemoveBlockedSlot={handleRemoveBlockedSlot}
+            onAddExtraSlot={handleAddExtraSlot}
+            onRemoveExtraSlot={handleRemoveExtraSlot}
             onSaveMercadoPago={handleSaveMercadoPago}
           />
           <AppointmentsTab
@@ -722,6 +735,7 @@ export default function AdminDashboard() {
             loadingData={loadingData}
             fetchAppointments={fetchAppointments}
             handleCancelAppointment={handleCancelAppointment}
+            handleMarkNoShow={handleMarkNoShow}
             actionLoading={actionLoading}
           />
         </div>

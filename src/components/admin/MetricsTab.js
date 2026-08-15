@@ -1,7 +1,16 @@
 'use client';
 
-import { RefreshCw, Users, Phone } from 'lucide-react';
+import { RefreshCw, Users, Phone, Download } from 'lucide-react';
 import styles from '@/styles/admin.module.css';
+
+// Escapa un valor para que sea seguro incluirlo en una celda CSV
+function escapeCsvValue(value) {
+  const str = String(value ?? '');
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
 
 export default function MetricsTab({
   metrics,
@@ -23,8 +32,54 @@ export default function MetricsTab({
     }).format(amount);
   };
 
+  // Genera y descarga un CSV con el resumen financiero y el ranking de clientas
+  const handleExportCSV = () => {
+    if (!metrics) return;
+
+    const rows = [];
+    rows.push(['Reporte de Métricas - Las Manitos de Mili']);
+    rows.push([`Generado el ${new Date().toLocaleString('es-AR')}`]);
+    rows.push([]);
+    rows.push(['Período', 'Turnos', 'Recaudación (ARS)', 'No-shows']);
+    rows.push(['Hoy', metrics.today.count, metrics.today.revenue, metrics.today.noShowCount || 0]);
+    rows.push(['Semana actual', metrics.week.count, metrics.week.revenue, metrics.week.noShowCount || 0]);
+    rows.push(['Mes en curso', metrics.month.count, metrics.month.revenue, metrics.month.noShowCount || 0]);
+    rows.push([]);
+    rows.push(['Ranking de Clientas']);
+    rows.push(['Puesto', 'Nombre', 'Teléfono', 'N° Visitas', 'Total Consumido (ARS)']);
+    ranking.forEach((client, idx) => {
+      rows.push([idx + 1, client.client_name, client.client_phone, client.visits_count, client.total_spent]);
+    });
+
+    const csvContent = rows.map(row => row.map(escapeCsvValue).join(',')).join('\n');
+    // El BOM al inicio asegura que Excel abra los acentos correctamente
+    const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `metricas-lasmanitosdemili-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="animate-fade-in">
+      {/* Botón de exportación */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+        <button
+          type="button"
+          className="btn-secondary"
+          style={{ padding: '8px 16px', fontSize: '0.8rem' }}
+          onClick={handleExportCSV}
+          disabled={!metrics}
+          title="Descargar recaudación y ranking en un archivo CSV"
+        >
+          <Download size={14} /> Exportar CSV
+        </button>
+      </div>
+
       {/* KPI Dashboard Row */}
       <div className={styles.metricsGrid}>
         {/* KPI Hoy */}
@@ -34,7 +89,10 @@ export default function MetricsTab({
             {metrics ? formatMoney(metrics.today.revenue) : '$0'}
           </span>
           <div className={styles.metricDetail}>
-            Turnos agendados: <span>{metrics ? metrics.today.count : 0}</span>
+            Turnos agendados: <strong>{metrics ? metrics.today.count : 0}</strong>
+            {metrics && metrics.today.noShowCount > 0 && (
+              <span style={{ color: 'var(--error)' }}>No-shows: <strong style={{ color: 'var(--error)' }}>{metrics.today.noShowCount}</strong></span>
+            )}
           </div>
         </div>
 
@@ -45,7 +103,10 @@ export default function MetricsTab({
             {metrics ? formatMoney(metrics.week.revenue) : '$0'}
           </span>
           <div className={styles.metricDetail}>
-            Turnos agendados: <span>{metrics ? metrics.week.count : 0}</span>
+            Turnos agendados: <strong>{metrics ? metrics.week.count : 0}</strong>
+            {metrics && metrics.week.noShowCount > 0 && (
+              <span style={{ color: 'var(--error)' }}>No-shows: <strong style={{ color: 'var(--error)' }}>{metrics.week.noShowCount}</strong></span>
+            )}
           </div>
         </div>
 
@@ -56,7 +117,10 @@ export default function MetricsTab({
             {metrics ? formatMoney(metrics.month.revenue) : '$0'}
           </span>
           <div className={styles.metricDetail}>
-            Turnos agendados: <span>{metrics ? metrics.month.count : 0}</span>
+            Turnos agendados: <strong>{metrics ? metrics.month.count : 0}</strong>
+            {metrics && metrics.month.noShowCount > 0 && (
+              <span style={{ color: 'var(--error)' }}>No-shows: <strong style={{ color: 'var(--error)' }}>{metrics.month.noShowCount}</strong></span>
+            )}
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { cookies } from 'next/headers';
-import crypto from 'crypto';
+import { isAdminAuthenticated } from '@/lib/auth';
 
 // GET: Obtener todos los servicios y sus precios
 export async function GET() {
@@ -19,10 +19,9 @@ export async function GET() {
 export async function POST(request) {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get('admin_token')?.value;
+    const isAdmin = await isAdminAuthenticated(cookieStore);
 
-    const adminHash = crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
-    if (!token || token !== adminHash) {
+    if (!isAdmin) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -39,7 +38,7 @@ export async function POST(request) {
     for (const item of prices) {
       const { id, price } = item;
       const parsedPrice = parseInt(price, 10);
-      
+
       if (!id || isNaN(parsedPrice) || parsedPrice < 0) {
         continue; // Ignorar registros inválidos
       }

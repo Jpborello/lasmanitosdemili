@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { cookies } from 'next/headers';
-import crypto from 'crypto';
+import { isAdminAuthenticated } from '@/lib/auth';
 
 export async function GET() {
   try {
     // 1. Verificar autenticación
     const cookieStore = await cookies();
-    const token = cookieStore.get('admin_token')?.value;
-    const adminHash = crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
+    const isAdmin = await isAdminAuthenticated(cookieStore);
 
-    if (!token || token !== adminHash) {
+    if (!isAdmin) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -18,11 +17,11 @@ export async function GET() {
 
     // 2. Obtener lista consolidada de clientas por celular usando la tabla clients
     const result = await db.execute(`
-      SELECT 
-        c.name as client_name, 
-        c.phone as client_phone, 
+      SELECT
+        c.name as client_name,
+        c.phone as client_phone,
         c.email as client_email,
-        COUNT(a.id) as visits_count, 
+        COUNT(a.id) as visits_count,
         COALESCE(SUM(a.price), 0) as total_spent,
         MAX(a.appointment_date || ' ' || a.appointment_time) as last_visit
       FROM clients c

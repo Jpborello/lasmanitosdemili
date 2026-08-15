@@ -1,22 +1,21 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { cookies } from 'next/headers';
-import crypto from 'crypto';
+import { isAdminAuthenticated } from '@/lib/auth';
 
 // GET: Obtener todas las opiniones (para moderación)
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get('admin_token')?.value;
+    const isAdmin = await isAdminAuthenticated(cookieStore);
 
-    const adminHash = crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
-    if (!token || token !== adminHash) {
+    if (!isAdmin) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
     const db = await getDb();
     const result = await db.execute({
-      sql: `SELECT * FROM reviews 
+      sql: `SELECT * FROM reviews
             ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at DESC`,
       args: [],
     });
@@ -32,10 +31,9 @@ export async function GET() {
 export async function POST(request) {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get('admin_token')?.value;
+    const isAdmin = await isAdminAuthenticated(cookieStore);
 
-    const adminHash = crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
-    if (!token || token !== adminHash) {
+    if (!isAdmin) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -70,10 +68,9 @@ export async function DELETE(request) {
     }
 
     const cookieStore = await cookies();
-    const token = cookieStore.get('admin_token')?.value;
+    const isAdmin = await isAdminAuthenticated(cookieStore);
 
-    const adminHash = crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
-    if (!token || token !== adminHash) {
+    if (!isAdmin) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 

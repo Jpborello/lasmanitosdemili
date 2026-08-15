@@ -4,6 +4,7 @@
   --bg-primary: #fdfaf6;       /* Crema muy suave */
   --bg-secondary: #f6eee5;     /* Lino suave / café con leche claro */
   --accent-rose: #dcae96;      /* Rosa viejo elegante */
+  --accent-rose-strong: #d98ea3; /* Rosa más intenso, para franjas destacadas */
   --accent-gold: #c5a880;      /* Champagne / Oro suave */
   --text-dark: #2c2220;        /* Espresso oscuro (evita el negro puro) */
   --text-muted: #6e5e5b;       /* Café medio para textos descriptivos */
@@ -156,4 +157,25 @@ button, input, select, textarea {
 
 .animate-scale-in {
   animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Scroll Reveal (usado por el componente <Reveal>) */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }

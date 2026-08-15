@@ -11,6 +11,7 @@ export default function SettingsTab({
   blockedWeekdays,
   blockedDates,
   blockedSlots,
+  extraSlots,
   mpEnabled,
   mpAccessToken,
   mpPublicKey,
@@ -22,11 +23,15 @@ export default function SettingsTab({
   onRemoveBlockedDate,
   onAddBlockedSlot,
   onRemoveBlockedSlot,
+  onAddExtraSlot,
+  onRemoveExtraSlot,
   onSaveMercadoPago,
 }) {
   const [dateToBlock, setDateToBlock] = useState('');
   const [slotDateToBlock, setSlotDateToBlock] = useState('');
   const [slotTimeToBlock, setSlotTimeToBlock] = useState('08:00');
+  const [extraDate, setExtraDate] = useState('');
+  const [extraTime, setExtraTime] = useState('18:00');
 
   const [localMpEnabled, setLocalMpEnabled] = useState(mpEnabled || false);
   const [localMpAccessToken, setLocalMpAccessToken] = useState(mpAccessToken || '');
@@ -67,6 +72,13 @@ export default function SettingsTab({
     if (!slotDateToBlock || !slotTimeToBlock) return;
     onAddBlockedSlot(slotDateToBlock, slotTimeToBlock);
     setSlotDateToBlock('');
+  };
+
+  const handleExtraSlotSubmit = (e) => {
+    e.preventDefault();
+    if (!extraDate || !extraTime) return;
+    onAddExtraSlot(extraDate, extraTime);
+    setExtraDate('');
   };
 
   const handleMpSubmit = (e) => {
@@ -290,6 +302,91 @@ export default function SettingsTab({
         ) : (
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
             No hay horarios bloqueados.
+          </p>
+        )}
+      </div>
+
+      {/* Horarios Extra (turnos puntuales fuera del horario fijo) */}
+      <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+        <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Agregar Horario Extra
+        </h3>
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+          Habilita un turno puntual en un día y horario específico, aunque no forme parte del horario fijo habitual (ej. un 18:00hs extra, o cualquier otra hora).
+        </p>
+
+        <form onSubmit={handleExtraSlotSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '15px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="date"
+              required
+              style={{
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-color)',
+                fontSize: '0.85rem',
+                flexGrow: 1
+              }}
+              value={extraDate}
+              onChange={(e) => setExtraDate(e.target.value)}
+              disabled={actionLoading}
+            />
+
+            <input
+              type="time"
+              required
+              step="60"
+              style={{
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-color)',
+                fontSize: '0.85rem',
+                backgroundColor: 'var(--white)',
+              }}
+              value={extraTime}
+              onChange={(e) => setExtraTime(e.target.value)}
+              disabled={actionLoading}
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="btn-primary"
+            style={{ width: '100%', padding: '8px', fontSize: '0.8rem' }}
+            disabled={actionLoading}
+          >
+            Agregar Horario Extra
+          </button>
+        </form>
+
+        {extraSlots.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '150px', overflowY: 'auto', paddingRight: '5px' }}>
+            {[...extraSlots].sort().map(slotKey => {
+              const [dateStr, timeStr] = slotKey.split('_');
+              return (
+                <div key={slotKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', backgroundColor: 'rgba(136, 167, 131, 0.08)', border: '1px solid rgba(136, 167, 131, 0.2)', borderRadius: 'var(--radius-sm)' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>
+                    {new Date(`${dateStr}T00:00:00`).toLocaleDateString('es-AR', {
+                      day: 'numeric',
+                      month: 'short'
+                    })} - {timeStr} hs
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveExtraSlot(slotKey)}
+                    disabled={actionLoading}
+                    style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    title="Quitar horario extra"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            No hay horarios extra agregados.
           </p>
         )}
       </div>

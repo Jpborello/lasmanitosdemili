@@ -1,25 +1,24 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { cookies } from 'next/headers';
-import crypto from 'crypto';
+import { isAdminAuthenticated } from '@/lib/auth';
 
 // GET: Retornar las configuraciones públicas
 export async function GET() {
   try {
     const db = await getDb();
     const result = await db.execute('SELECT key, value FROM settings');
-    
+
     // Verificar si es administrador para retornar tokens sensibles
     const cookieStore = await cookies();
-    const token = cookieStore.get('admin_token')?.value;
-    const adminHash = crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
-    const isAdmin = token && token === adminHash;
+    const isAdmin = await isAdminAuthenticated(cookieStore);
 
     const settings = {
       enable_18_weekday: true,
       blocked_weekdays: '0', // 0 = Domingo cerrado por defecto
       blocked_dates: '',
       blocked_slots: '',
+      extra_slots: '',
       mp_enabled: false,
       mp_public_key: '',
       mp_deposit_amount: 2000,
@@ -35,6 +34,8 @@ export async function GET() {
         settings.blocked_dates = row.value;
       } else if (row.key === 'blocked_slots') {
         settings.blocked_slots = row.value;
+      } else if (row.key === 'extra_slots') {
+        settings.extra_slots = row.value;
       } else if (row.key === 'mp_enabled') {
         settings.mp_enabled = row.value === 'true';
       } else if (row.key === 'mp_public_key') {
@@ -57,19 +58,19 @@ export async function GET() {
 export async function POST(request) {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get('admin_token')?.value;
+    const isAdmin = await isAdminAuthenticated(cookieStore);
 
-    const adminHash = crypto.createHash('sha256').update(process.env.ADMIN_PASSWORD || '').digest('hex');
-    if (!token || token !== adminHash) {
+    if (!isAdmin) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { 
-      enable_18_weekday, 
-      blocked_weekdays, 
-      blocked_dates, 
+    const {
+      enable_18_weekday,
+      blocked_weekdays,
+      blocked_dates,
       blocked_slots,
+      extra_slots,
       mp_enabled,
       mp_access_token,
       mp_public_key,
@@ -103,6 +104,13 @@ export async function POST(request) {
       await db.execute({
         sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
         args: ['blocked_slots', blocked_slots.toString()],
+      });
+    }
+
+    if (extra_slots !== undefined) {
+      await db.execute({
+        sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        args: ['extra_slots', extra_slots.toString()],
       });
     }
 
@@ -141,6 +149,7 @@ export async function POST(request) {
       blocked_weekdays: '0',
       blocked_dates: '',
       blocked_slots: '',
+      extra_slots: '',
       mp_enabled: false,
       mp_public_key: '',
       mp_deposit_amount: 2000,
@@ -155,6 +164,8 @@ export async function POST(request) {
         settings.blocked_dates = row.value;
       } else if (row.key === 'blocked_slots') {
         settings.blocked_slots = row.value;
+      } else if (row.key === 'extra_slots') {
+        settings.extra_slots = row.value;
       } else if (row.key === 'mp_enabled') {
         settings.mp_enabled = row.value === 'true';
       } else if (row.key === 'mp_public_key') {

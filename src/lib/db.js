@@ -36,15 +36,15 @@ export async function getDb() {
         await db.execute(`
           ALTER TABLE appointments ADD COLUMN price INTEGER DEFAULT 0
         `);
-        
+
         // Rellenar datos huérfanos con precios estimados para las pruebas previas
         await db.execute(`
-          UPDATE appointments 
-          SET price = CASE 
-            WHEN service = 'semi' THEN 8000 
-            WHEN service = 'kapping' THEN 10000 
-            WHEN service = 'esculpidas' THEN 12000 
-            ELSE 2000 
+          UPDATE appointments
+          SET price = CASE
+            WHEN service = 'semi' THEN 8000
+            WHEN service = 'kapping' THEN 10000
+            WHEN service = 'esculpidas' THEN 12000
+            ELSE 2000
           END
           WHERE price = 0 OR price IS NULL
         `);
@@ -86,6 +86,11 @@ export async function getDb() {
       `);
       await db.execute(`
         INSERT OR IGNORE INTO settings (key, value) VALUES ('mp_deposit_amount', '2000')
+      `);
+
+      // Horarios extra: turnos puntuales habilitados fuera del horario fijo (formato fecha_hora)
+      await db.execute(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('extra_slots', '')
       `);
 
       // Crear tabla de reviews
@@ -192,6 +197,25 @@ export async function getDb() {
       } catch (indexError) {
         console.error('Error al crear índice UNIQUE de turnos:', indexError);
       }
+
+      // Crear tabla de sesiones de administrador (tokens aleatorios, no derivados de la contraseña)
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS admin_sessions (
+          token_hash TEXT PRIMARY KEY,
+          created_at TEXT NOT NULL,
+          expires_at TEXT NOT NULL
+        )
+      `);
+
+      // Crear tabla de intentos de login fallidos (rate limiting por IP)
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS login_attempts (
+          identifier TEXT PRIMARY KEY,
+          attempts INTEGER NOT NULL DEFAULT 0,
+          first_attempt_at TEXT NOT NULL,
+          locked_until TEXT
+        )
+      `);
 
       initialized = true;
     } catch (error) {

@@ -1,10 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Sparkles, Clock, MapPin, ShieldCheck, Heart } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Sparkles, Clock, MapPin, ShieldCheck, Heart, ChevronDown, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
 import styles from '@/styles/landing.module.css';
 import BookingCalendar from './BookingCalendar';
+import Reveal from './Reveal';
 import { useClientSession } from '@/hooks/useClientSession';
+import { useScrollReveal } from '@/hooks/useScrollReveal';
+import { useCountUp } from '@/hooks/useCountUp';
+import { YEARS_OF_EXPERIENCE, MILI_WHATSAPP_NUMBER, TURNOS_ATENDIDOS_BASE_OFFSET } from '@/lib/constants';
+
+// Galería de trabajos reales del estudio
+const GALLERY_IMAGES = [
+  { src: '/images/Screenshot 2026-07-21 193733.png', title: 'Diseño Soft Pink' },
+  { src: '/images/Screenshot 2026-07-21 193745.png', title: 'Francesitas Delicadas' },
+  { src: '/images/Screenshot 2026-07-21 193758.png', title: 'Kapping con Brillo' },
+  { src: '/images/Screenshot 2026-07-21 193807.png', title: 'Glitter Ombré' },
+  { src: '/images/Screenshot 2026-07-21 193816.png', title: 'Nude Coffin' },
+  { src: '/images/Screenshot 2026-07-21 193828.png', title: 'Efecto Mármol' },
+  { src: '/images/Screenshot 2026-07-21 193838.png', title: 'Decoración Mano Alzada' },
+];
 
 export default function Landing() {
   const {
@@ -25,10 +40,64 @@ export default function Landing() {
   const [reviewSuccess, setReviewSuccess] = useState('');
   const [reviewError, setReviewError] = useState('');
   const [servicesList, setServicesList] = useState([]);
-  const [selectedImage, setSelectedImage] = useState(null);
-  
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
+  const selectedImage = selectedImageIndex !== null ? GALLERY_IMAGES[selectedImageIndex] : null;
+
   // Mercado Pago feedback parameters checking
   const [paymentStatus, setPaymentStatus] = useState(null);
+
+  // Header: se vuelve "glass" y se achica al hacer scroll
+  const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
+  useEffect(() => {
+    const handleScroll = () => setIsHeaderScrolled(window.scrollY > 40);
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Hero: parallax sutil en la imagen al hacer scroll
+  const heroImageRef = useRef(null);
+  useEffect(() => {
+    let rafId = null;
+    const handleParallax = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        if (heroImageRef.current) {
+          const offset = Math.min(window.scrollY * 0.15, 60);
+          heroImageRef.current.style.transform = `translateY(calc(-8% + ${offset}px))`;
+        }
+        rafId = null;
+      });
+    };
+    handleParallax();
+    window.addEventListener('scroll', handleParallax, { passive: true });
+    return () => window.removeEventListener('scroll', handleParallax);
+  }, []);
+
+  // Franja de confianza: la calificación se trae real de la base. Mili trabaja sola,
+  // así que un turno siempre es una clienta atendida: "Turnos Realizados" y "Clientas
+  // Atendidas" son el mismo número (base fija + turnos reservados en vivo desde la web).
+  const [stats, setStats] = useState(null);
+  const [statsRef, statsVisible] = useScrollReveal({ threshold: 0.1, rootMargin: '0px' });
+  useEffect(() => {
+    fetch('/api/stats')
+      .then(res => res.json())
+      .then(data => setStats(data))
+      .catch(err => console.error('Error fetching stats:', err));
+  }, []);
+  // Red de seguridad: si por lo que sea el IntersectionObserver no dispara
+  // (pantallas muy anchas, secciones cortas, navegadores raros, etc.), los
+  // contadores igual arrancan solos a los 2 segundos de cargar la página.
+  const [statsFallbackVisible, setStatsFallbackVisible] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setStatsFallbackVisible(true), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+  const statsAnimationActive = statsVisible || statsFallbackVisible;
+  const turnosAtendidosTotal = TURNOS_ATENDIDOS_BASE_OFFSET + (stats?.totalAppointments || 0);
+  const clientsCount = useCountUp(turnosAtendidosTotal, { start: statsAnimationActive, duration: 1600 });
+  const appointmentsCount = useCountUp(turnosAtendidosTotal, { start: statsAnimationActive, duration: 1800 });
+  const yearsCount = useCountUp(YEARS_OF_EXPERIENCE, { start: statsAnimationActive, duration: 900 });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -156,6 +225,28 @@ export default function Landing() {
       })
       .catch(err => console.error('Error fetching services:', err));
   }, []);
+
+  // Navegación del lightbox de la galería
+  const goToPrevImage = () => {
+    setSelectedImageIndex(prev => (prev === null ? null : (prev - 1 + GALLERY_IMAGES.length) % GALLERY_IMAGES.length));
+  };
+  const goToNextImage = () => {
+    setSelectedImageIndex(prev => (prev === null ? null : (prev + 1) % GALLERY_IMAGES.length));
+  };
+
+  // Navegación del lightbox con teclado (flechas y Escape)
+  useEffect(() => {
+    if (selectedImageIndex === null) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowLeft') goToPrevImage();
+      else if (e.key === 'ArrowRight') goToNextImage();
+      else if (e.key === 'Escape') setSelectedImageIndex(null);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedImageIndex]);
 
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
@@ -363,7 +454,7 @@ export default function Landing() {
       )}
 
       {/* Header */}
-      <header className={styles.header}>
+      <header className={`${styles.header} ${isHeaderScrolled ? styles.headerScrolled : ''}`}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <div className={styles.logoContainer}>
             <img src="/logo.jpg" alt="Las Manitos de Mili" className={styles.logoImg} />
@@ -384,13 +475,15 @@ export default function Landing() {
       {/* Hero Section */}
       <section id="inicio" className="container">
         <div className={styles.hero}>
+          <div className={styles.heroDecorBlob1} aria-hidden="true"></div>
+          <div className={styles.heroDecorBlob2} aria-hidden="true"></div>
           <div className={styles.heroContent}>
-            <span className={styles.heroSubtitle}>Manicura Profesional</span>
-            <h1 className={styles.heroTitle}>Resalta la belleza de tus manos</h1>
-            <p className={styles.heroDescription}>
+            <span className={`${styles.heroSubtitle} ${styles.heroFadeUp}`}>Manicura Profesional</span>
+            <h1 className={`${styles.heroTitle} ${styles.heroFadeUp} ${styles.heroFadeUpDelay1}`}>Resalta la belleza de tus manos</h1>
+            <p className={`${styles.heroDescription} ${styles.heroFadeUp} ${styles.heroFadeUpDelay2}`}>
               Servicio de manicuría de alta calidad, diseñado para cuidar y embellecer tus uñas con técnicas profesionales y productos premium. ¡Reserva tu turno en minutos!
             </p>
-            <div className={styles.heroButtons}>
+            <div className={`${styles.heroButtons} ${styles.heroFadeUp} ${styles.heroFadeUpDelay3}`}>
               <a href="#turnos" className={styles.heroBtnPink}>
                 Reservar Turno
               </a>
@@ -400,12 +493,41 @@ export default function Landing() {
             </div>
           </div>
           <div className={styles.heroImageContainer}>
-            <img 
-              src="/images/sami.jpg" 
-              alt="Sami trabajando en Las Manitos de Mili" 
+            <img
+              ref={heroImageRef}
+              src="/images/sami.jpg"
+              alt="Sami trabajando en Las Manitos de Mili"
               className={styles.heroImage}
               style={{ objectPosition: 'center 20%' }}
             />
+          </div>
+        </div>
+
+        <a href="#sobre-mi" className={styles.scrollDownIndicator} aria-label="Bajar para ver más">
+          <ChevronDown size={22} />
+        </a>
+      </section>
+
+      {/* Franja de confianza */}
+      <section className={styles.trustStrip} ref={statsRef}>
+        <div className="container">
+          <div className={styles.trustGrid}>
+            <div className={styles.trustItem}>
+              <span className={styles.trustNumber}>{yearsCount}+</span>
+              <span className={styles.trustLabel}>Años de Experiencia</span>
+            </div>
+            <div className={styles.trustItem}>
+              <span className={styles.trustNumber}>{clientsCount}+</span>
+              <span className={styles.trustLabel}>Clientas Atendidas</span>
+            </div>
+            <div className={styles.trustItem}>
+              <span className={styles.trustNumber}>{appointmentsCount}+</span>
+              <span className={styles.trustLabel}>Turnos Realizados</span>
+            </div>
+            <div className={styles.trustItem}>
+              <span className={styles.trustNumber}>{stats?.avgRating ? `${stats.avgRating}★` : '—'}</span>
+              <span className={styles.trustLabel}>Calificación Promedio</span>
+            </div>
           </div>
         </div>
       </section>
@@ -414,14 +536,14 @@ export default function Landing() {
       <section id="sobre-mi" className={styles.aboutSection}>
         <div className="container">
           <div className={styles.aboutGrid}>
-            <div className={styles.aboutImageContainer}>
-              <img 
-                src="/images/Screenshot 2026-07-21 193745.png" 
-                alt="Diseño de uñas real - Las Manitos de Mili" 
+            <Reveal as="div" className={styles.aboutImageContainer}>
+              <img
+                src="/images/Screenshot 2026-07-21 193745.png"
+                alt="Diseño de uñas real - Las Manitos de Mili"
                 className={styles.aboutImage}
               />
-            </div>
-            <div className={styles.aboutContent}>
+            </Reveal>
+            <Reveal as="div" delay={150} className={styles.aboutContent}>
               <span className={styles.sectionSubtitle}>Conóceme</span>
               <h2 className={styles.sectionTitle}>Sami • Especialista en Uñas</h2>
               <p className={styles.aboutText}>
@@ -433,7 +555,7 @@ export default function Landing() {
               <p className={styles.aboutText}>
                 Siempre busco la perfección absoluta en cada detalle, cuidando la salud de tus uñas y asegurándome de que salgas sintiéndote reluciente y feliz. ¡Te espero en el estudio para diseñar tus uñas ideales!
               </p>
-            </div>
+            </Reveal>
           </div>
         </div>
       </section>
@@ -441,18 +563,18 @@ export default function Landing() {
       {/* Services Section */}
       <section id="servicios" className={styles.servicesSection}>
         <div className="container">
-          <div className={styles.sectionHeader}>
+          <Reveal as="div" className={styles.sectionHeader}>
             <span className={styles.sectionSubtitle}>¿Qué ofrecemos?</span>
             <h2 className={styles.sectionTitle}>Nuestros Servicios Premium</h2>
             <p style={{ color: 'var(--text-muted)' }}>Utilizamos productos de primera línea para garantizar la durabilidad y salud de tus uñas y pies.</p>
-          </div>
+          </Reveal>
 
           {/* Categoría: Manicuría */}
           <h3 className={styles.categoryTitle}>Servicios de Manicuría</h3>
           <div className={styles.servicesGrid} style={{ marginBottom: '50px' }}>
             {servicesList.length > 0 ? (
-              servicesList.filter(s => s.category === 'manicura').map(s => (
-                <div key={s.id} className={`${styles.serviceCard} glass-card`}>
+              servicesList.filter(s => s.category === 'manicura').map((s, idx) => (
+                <Reveal as="div" key={s.id} delay={Math.min(idx, 6) * 90} className={`${styles.serviceCard} glass-card`}>
                   <div className={styles.serviceHeader}>
                     <h3 className={styles.serviceName}>{s.name}</h3>
                     <span className={styles.servicePrice}>${new Intl.NumberFormat('es-AR').format(s.price)}</span>
@@ -472,7 +594,7 @@ export default function Landing() {
                       <ShieldCheck size={14} /> Productos Importados
                     </span>
                   </div>
-                </div>
+                </Reveal>
               ))
             ) : (
               <div style={{ textAlign: 'center', gridColumn: '1/-1' }}>Cargando servicios...</div>
@@ -483,8 +605,8 @@ export default function Landing() {
           <h3 className={styles.categoryTitle}>Servicios de Pedicuría</h3>
           <div className={styles.servicesGrid}>
             {servicesList.length > 0 ? (
-              servicesList.filter(s => s.category === 'pedicura').map(s => (
-                <div key={s.id} className={`${styles.serviceCard} glass-card`}>
+              servicesList.filter(s => s.category === 'pedicura').map((s, idx) => (
+                <Reveal as="div" key={s.id} delay={Math.min(idx, 6) * 90} className={`${styles.serviceCard} glass-card`}>
                   <div className={styles.serviceHeader}>
                     <h3 className={styles.serviceName}>{s.name}</h3>
                     <span className={styles.servicePrice}>${new Intl.NumberFormat('es-AR').format(s.price)}</span>
@@ -502,7 +624,7 @@ export default function Landing() {
                       <ShieldCheck size={14} /> Cuidado Profundo
                     </span>
                   </div>
-                </div>
+                </Reveal>
               ))
             ) : (
               <div style={{ textAlign: 'center', gridColumn: '1/-1' }}>Cargando servicios...</div>
@@ -514,26 +636,20 @@ export default function Landing() {
       {/* Gallery Section */}
       <section id="galeria" className={styles.gallerySection}>
         <div className="container">
-          <div className={styles.sectionHeader}>
+          <Reveal as="div" className={styles.sectionHeader}>
             <span className={styles.sectionSubtitle}>Galería de trabajos</span>
             <h2 className={styles.sectionTitle}>Mis Diseños</h2>
             <p style={{ color: 'var(--text-muted)' }}>Echa un vistazo a algunos de los últimos diseños realizados en el estudio.</p>
-          </div>
+          </Reveal>
 
           <div className={styles.galleryGrid}>
-            {[
-              { src: '/images/Screenshot 2026-07-21 193733.png', title: 'Diseño Soft Pink' },
-              { src: '/images/Screenshot 2026-07-21 193745.png', title: 'Francesitas Delicadas' },
-              { src: '/images/Screenshot 2026-07-21 193758.png', title: 'Kapping con Brillo' },
-              { src: '/images/Screenshot 2026-07-21 193807.png', title: 'Glitter Ombré' },
-              { src: '/images/Screenshot 2026-07-21 193816.png', title: 'Nude Coffin' },
-              { src: '/images/Screenshot 2026-07-21 193828.png', title: 'Efecto Mármol' },
-              { src: '/images/Screenshot 2026-07-21 193838.png', title: 'Decoración Mano Alzada' },
-            ].map((img, idx) => (
-              <div 
-                key={idx} 
-                className={styles.galleryItem}
-                onClick={() => setSelectedImage(img)}
+            {GALLERY_IMAGES.map((img, idx) => (
+              <Reveal
+                as="div"
+                key={idx}
+                delay={Math.min(idx, 6) * 80}
+                className={`${styles.galleryItem} ${styles[`galleryItem${(idx % 3) + 1}`]}`}
+                onClick={() => setSelectedImageIndex(idx)}
                 title="Haz clic para ampliar"
               >
                 <img src={img.src} alt={img.title} className={styles.galleryImg} />
@@ -541,7 +657,7 @@ export default function Landing() {
                 <div className={styles.galleryOverlay}>
                   <span className={styles.galleryTitle}>{img.title}</span>
                 </div>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -549,34 +665,52 @@ export default function Landing() {
 
       {/* Lightbox / Modal de Imagen Ampliada */}
       {selectedImage && (
-        <div 
-          className={styles.lightboxOverlay} 
-          onClick={() => setSelectedImage(null)}
+        <div
+          className={styles.lightboxOverlay}
+          onClick={() => setSelectedImageIndex(null)}
         >
+          <button
+            type="button"
+            className={`${styles.lightboxNavBtn} ${styles.lightboxNavPrev}`}
+            onClick={(e) => { e.stopPropagation(); goToPrevImage(); }}
+            aria-label="Foto anterior"
+          >
+            <ChevronLeft size={28} />
+          </button>
+
           <div className={styles.lightboxContent} onClick={(e) => e.stopPropagation()}>
-            <button 
+            <button
               type="button"
-              className={styles.lightboxClose} 
-              onClick={() => setSelectedImage(null)}
+              className={styles.lightboxClose}
+              onClick={() => setSelectedImageIndex(null)}
             >
               ×
             </button>
             <img src={selectedImage.src} alt={selectedImage.title} className={styles.lightboxImg} />
             <div className={styles.lightboxCaption}>
               <h3>{selectedImage.title}</h3>
-              <p>Las Manitos de Mili - Trabajo Real</p>
+              <p>Las Manitos de Mili - Trabajo Real · {selectedImageIndex + 1} / {GALLERY_IMAGES.length}</p>
             </div>
           </div>
+
+          <button
+            type="button"
+            className={`${styles.lightboxNavBtn} ${styles.lightboxNavNext}`}
+            onClick={(e) => { e.stopPropagation(); goToNextImage(); }}
+            aria-label="Foto siguiente"
+          >
+            <ChevronRight size={28} />
+          </button>
         </div>
       )}
 
       {/* Testimonials */}
       <section className={styles.testimonialsSection}>
         <div className="container">
-          <div className={styles.sectionHeader}>
+          <Reveal as="div" className={styles.sectionHeader}>
             <span className={styles.sectionSubtitle}>Opiniones</span>
             <h2 className={styles.sectionTitle}>Lo que dicen nuestras clientas</h2>
-          </div>
+          </Reveal>
 
           <div className={styles.testimonialsGrid}>
             {loadingReviews ? (
@@ -588,15 +722,15 @@ export default function Landing() {
                 Aún no hay opiniones aprobadas. ¡Sé la primera en dejar tu reseña!
               </p>
             ) : (
-              reviews.map((rev) => (
-                <div key={rev.id} className={`${styles.testimonialCard} glass-card`} style={{ animation: 'fadeIn 0.5s ease forwards' }}>
-                  <span className={styles.quoteIcon}>“</span>
+              reviews.map((rev, idx) => (
+                <Reveal as="div" key={rev.id} delay={Math.min(idx, 6) * 90} className={`${styles.testimonialCard} glass-card`}>
+                  <span className={styles.quoteIcon}>"</span>
                   <p className={styles.testimonialText}>{rev.comment}</p>
                   <div className={styles.testimonialAuthor}>— {rev.client_name}</div>
                   <div className={styles.stars}>
                     {'★'.repeat(rev.rating)}{'☆'.repeat(5 - rev.rating)}
                   </div>
-                </div>
+                </Reveal>
               ))
             )}
           </div>
@@ -703,15 +837,26 @@ export default function Landing() {
       {/* Booking Form Section */}
       <section id="turnos" className={styles.bookingSection}>
         <div className="container">
-          <div className={styles.sectionHeader}>
+          <Reveal as="div" className={styles.sectionHeader}>
             <span className={styles.sectionSubtitle}>Reservas online</span>
             <h2 className={styles.sectionTitle}>Agenda tu cita en segundos</h2>
             <p style={{ color: 'var(--text-muted)' }}>Elige el día y horario que mejor te convenga. Recibirás la confirmación de inmediato.</p>
-          </div>
+          </Reveal>
 
           <BookingCalendar />
         </div>
       </section>
+
+      {/* Botón flotante de WhatsApp */}
+      <a
+        href={`https://wa.me/${MILI_WHATSAPP_NUMBER}?text=${encodeURIComponent('¡Hola! Quiero consultar por un turno 💅')}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={styles.floatingWhatsApp}
+        aria-label="Escribinos por WhatsApp"
+      >
+        <MessageCircle size={26} />
+      </a>
 
       {/* Footer */}
       <footer className={styles.footer}>

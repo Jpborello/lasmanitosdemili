@@ -90,6 +90,59 @@
   color: var(--white);
 }
 
+/* Tabs Navigation */
+.tabsNav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 30px;
+  border-bottom: 1px solid var(--border-color);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.tabBtn {
+  background: none;
+  border: none;
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 12px 12px;
+  white-space: nowrap;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  border-radius: 6px 6px 0 0;
+  transition: var(--transition-smooth);
+}
+
+.tabBtn:hover {
+  color: var(--text-dark);
+  background-color: rgba(220, 174, 150, 0.08);
+}
+
+.tabBtn:focus-visible {
+  outline: 2px solid var(--accent-rose);
+  outline-offset: 2px;
+}
+
+.tabBtnActive,
+.tabBtnActive:hover {
+  color: var(--text-dark);
+  border-bottom-color: var(--accent-rose);
+  background-color: transparent;
+}
+
+@media (max-width: 600px) {
+  .tabsNav {
+    gap: 4px;
+  }
+  .tabBtn {
+    font-size: 1rem;
+    padding: 8px 10px 10px;
+  }
+}
+
 /* Grid layout */
 .dashboardGrid {
   display: grid;
@@ -219,6 +272,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
   padding: 20px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
@@ -312,6 +367,34 @@
   border-color: var(--error);
 }
 
+.noShowBtn {
+  background-color: transparent;
+  border: 1px solid rgba(197, 168, 128, 0.4);
+  color: var(--accent-gold);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.noShowBtn:hover {
+  background-color: var(--accent-gold);
+  color: var(--white);
+  border-color: var(--accent-gold);
+}
+
+.logoutBtn:focus-visible,
+.webBtn:focus-visible,
+.cancelBtn:focus-visible,
+.noShowBtn:focus-visible {
+  outline: 2px solid var(--accent-rose);
+  outline-offset: 2px;
+}
+
 .emptyState {
   text-align: center;
   padding: 40px 20px;
@@ -367,12 +450,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
   border-top: 1px solid rgba(197, 168, 128, 0.15);
   padding-top: 10px;
   margin-top: 5px;
 }
 
-.metricDetail span {
+.metricDetail strong {
   font-weight: 600;
   color: var(--text-dark);
 }
