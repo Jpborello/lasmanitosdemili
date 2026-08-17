@@ -50,7 +50,9 @@ export default function AdminDashboard() {
   const [mpAccessToken, setMpAccessToken] = useState('');
   const [mpPublicKey, setMpPublicKey] = useState('');
   const [mpDepositAmount, setMpDepositAmount] = useState(2000);
-  
+  const [restrictedDepositAmount, setRestrictedDepositAmount] = useState(5000);
+  const [depositPaymentInstructions, setDepositPaymentInstructions] = useState('');
+
   // Clients State
   const [clientsList, setClientsList] = useState([]);
   const [loadingClients, setLoadingClients] = useState(false);
@@ -117,6 +119,12 @@ export default function AdminDashboard() {
         }
         if (data.mp_deposit_amount !== undefined) {
           setMpDepositAmount(data.mp_deposit_amount);
+        }
+        if (data.restricted_deposit_amount !== undefined) {
+          setRestrictedDepositAmount(data.restricted_deposit_amount);
+        }
+        if (data.deposit_payment_instructions !== undefined) {
+          setDepositPaymentInstructions(data.deposit_payment_instructions);
         }
       })
       .catch(err => console.error('Error fetching settings:', err));
@@ -542,6 +550,32 @@ export default function AdminDashboard() {
     }
   };
 
+  // Guardar configuración de seña para clientas restringidas
+  const handleSaveDepositSettings = async (config) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        if (data.restricted_deposit_amount !== undefined) setRestrictedDepositAmount(data.restricted_deposit_amount);
+        if (data.deposit_payment_instructions !== undefined) setDepositPaymentInstructions(data.deposit_payment_instructions);
+        alert('Configuración de seña guardada exitosamente.');
+      } else {
+        alert(data.error || 'Error al guardar configuración.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // 8. Cancelar un turno
   const handleCancelAppointment = async (id) => {
     const appt = appointments.find(a => a.id === id);
@@ -600,6 +634,35 @@ export default function AdminDashboard() {
     }
   };
 
+  // 8c. Aprobar una seña pendiente (confirma el turno y avisa a la clienta)
+  const handleApproveDeposit = async (id) => {
+    const appt = appointments.find(a => a.id === id);
+    const confirmApprove = window.confirm(
+      appt ? `¿Confirmás que ${appt.client_name} pagó la seña? Se le avisará por WhatsApp que su turno quedó confirmado.` : '¿Confirmás la seña de este turno?'
+    );
+    if (!confirmApprove) return;
+
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/appointments?id=${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'confirmed' }),
+      });
+
+      if (res.ok) {
+        fetchAppointments();
+      } else {
+        alert('No se pudo aprobar la seña.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // 9. Aprobar una opinión
   const handleApproveReview = async (id) => {
     setActionLoading(true);
@@ -638,6 +701,29 @@ export default function AdminDashboard() {
         fetchReviews();
       } else {
         alert('Error al eliminar la opinión.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 11b. Cambiar manualmente el estado de confianza de una clienta (switch on/off + bloqueo)
+  const handleSetClientTrustStatus = async (phone, trustStatus) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/clients', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, trust_status: trustStatus }),
+      });
+
+      if (res.ok) {
+        setClientsList(prev => prev.map(c => c.client_phone === phone ? { ...c, trust_status: trustStatus } : c));
+      } else {
+        alert('No se pudo actualizar el estado de la clienta.');
       }
     } catch (err) {
       console.error(err);
@@ -715,6 +801,8 @@ export default function AdminDashboard() {
             mpAccessToken={mpAccessToken}
             mpPublicKey={mpPublicKey}
             mpDepositAmount={mpDepositAmount}
+            restrictedDepositAmount={restrictedDepositAmount}
+            depositPaymentInstructions={depositPaymentInstructions}
             actionLoading={actionLoading}
             onToggle18={handleToggle18}
             onToggleWeekday={handleToggleWeekday}
@@ -725,6 +813,7 @@ export default function AdminDashboard() {
             onAddExtraSlot={handleAddExtraSlot}
             onRemoveExtraSlot={handleRemoveExtraSlot}
             onSaveMercadoPago={handleSaveMercadoPago}
+            onSaveDepositSettings={handleSaveDepositSettings}
           />
           <AppointmentsTab
             appointments={appointments}
@@ -736,6 +825,7 @@ export default function AdminDashboard() {
             fetchAppointments={fetchAppointments}
             handleCancelAppointment={handleCancelAppointment}
             handleMarkNoShow={handleMarkNoShow}
+            handleApproveDeposit={handleApproveDeposit}
             actionLoading={actionLoading}
           />
         </div>
@@ -781,6 +871,8 @@ export default function AdminDashboard() {
           clients={clientsList}
           loadingClients={loadingClients}
           fetchClients={fetchClients}
+          actionLoading={actionLoading}
+          onSetTrustStatus={handleSetClientTrustStatus}
         />
       )}
     </div>

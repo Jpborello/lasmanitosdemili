@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Clock, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Sparkles, ShieldAlert, ShieldX, MessageCircle } from 'lucide-react';
 import styles from '@/styles/booking.module.css';
-import { DEFAULT_SERVICES } from '@/lib/constants';
+import { DEFAULT_SERVICES, MILI_WHATSAPP_NUMBER } from '@/lib/constants';
 import { useClientSession } from '@/hooks/useClientSession';
 import { fireConfetti } from '@/lib/confetti';
 
@@ -37,9 +37,16 @@ export default function BookingCalendar() {
   const [bookingSuccess, setBookingSuccess] = useState(null);
   const [error, setError] = useState('');
 
-  // Celebración visual al confirmar un turno con éxito
+  // Estado de confianza de la clienta (confiable / restringida / bloqueada) y seña
+  const [trustStatus, setTrustStatus] = useState('trusted');
+  const [depositAmount, setDepositAmount] = useState(5000);
+  const [depositInstructions, setDepositInstructions] = useState('');
+  const [showRestrictedModal, setShowRestrictedModal] = useState(false);
+  const [depositAcknowledged, setDepositAcknowledged] = useState(false);
+
+  // Celebración visual al confirmar un turno con éxito (no aplica si quedó pendiente de seña)
   useEffect(() => {
-    if (bookingSuccess) {
+    if (bookingSuccess && bookingSuccess.status !== 'pending_deposit') {
       fireConfetti();
     }
   }, [bookingSuccess]);
@@ -71,6 +78,12 @@ export default function BookingCalendar() {
           const list = data.extra_slots.split(',').map(s => s.trim()).filter(Boolean);
           setExtraSlots(list);
         }
+        if (data.restricted_deposit_amount !== undefined) {
+          setDepositAmount(data.restricted_deposit_amount);
+        }
+        if (data.deposit_payment_instructions !== undefined) {
+          setDepositInstructions(data.deposit_payment_instructions);
+        }
       })
       .catch(err => console.error('Error fetching settings:', err));
 
@@ -83,6 +96,31 @@ export default function BookingCalendar() {
       })
       .catch(err => console.error('Error fetching services:', err));
   }, []);
+
+  // Consultar el estado de confianza de la clienta apenas se conoce su teléfono, para
+  // mostrarle el cartel de aviso (restringida) o el bloqueo total (bloqueada) a tiempo.
+  useEffect(() => {
+    const digits = (clientPhone || '').replace(/\D/g, '');
+    if (digits.length < 8) {
+      const timeoutId = setTimeout(() => setTrustStatus('trusted'), 0);
+      return () => clearTimeout(timeoutId);
+    }
+
+    let cancelled = false;
+    fetch(`/api/clients/status?phone=${digits}`, { cache: 'no-store' })
+      .then(res => res.json())
+      .then(data => {
+        if (cancelled) return;
+        const nextStatus = data.trust_status || 'trusted';
+        setTrustStatus(nextStatus);
+        if (nextStatus === 'restricted') {
+          setShowRestrictedModal(true);
+        }
+      })
+      .catch(err => console.error('Error fetching client status:', err));
+
+    return () => { cancelled = true; };
+  }, [clientPhone]);
 
   // Eliminar datos guardados (Cerrar sesión de clienta)
   const handleUnregister = () => {
@@ -255,6 +293,12 @@ export default function BookingCalendar() {
       return;
     }
 
+    // Si la clienta está restringida, primero debe leer y aceptar el aviso de la seña
+    if (trustStatus === 'restricted' && !depositAcknowledged) {
+      setShowRestrictedModal(true);
+      return;
+    }
+
     setSubmitting(true);
     setError('');
 
@@ -280,6 +324,9 @@ export default function BookingCalendar() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.blocked) {
+          setTrustStatus('blocked');
+        }
         throw new Error(data.error || 'Error al agendar el turno');
       }
 
@@ -336,13 +383,53 @@ export default function BookingCalendar() {
   // Si se reservó exitosamente, mostrar el comprobante
   if (bookingSuccess) {
     const selectedServiceDetails = servicesList.find(s => s.id === bookingSuccess.service);
+    const isPendingDeposit = bookingSuccess.status === 'pending_deposit';
     return (
       <div className={`${styles.successCard} glass-card-gold animate-scale-in`}>
         <div className={styles.successIcon}>
-          <Sparkles size={48} />
+          {isPendingDeposit ? <ShieldAlert size={48} /> : <Sparkles size={48} />}
         </div>
-        <h2 className={styles.successTitle}>¡Turno Confirmado!</h2>
-        <p>Tu reserva ha sido registrada con éxito para Las Manitos de Mili.</p>
+        <h2 className={styles.successTitle}>{isPendingDeposit ? 'Turno a la espera de la seña' : '¡Turno Confirmado!'}</h2>
+        <p>
+          {isPendingDeposit
+            ? `Tu horario quedó reservado, pero necesitamos que abones la seña de $${depositAmount} para confirmarlo definitivamente.`
+            : 'Tu reserva ha sido registrada con éxito para Las Manitos de Mili.'}
+        </p>
+
+        {isPendingDeposit && (
+          <div style={{
+            marginTop: '10px',
+            marginBottom: '10px',
+            padding: '12px 15px',
+            backgroundColor: 'rgba(197, 168, 128, 0.1)',
+            border: '1px solid rgba(197, 168, 128, 0.3)',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '0.85rem',
+            textAlign: 'left',
+            lineHeight: '1.5',
+          }}>
+            {depositInstructions ? (
+              <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{depositInstructions}</p>
+            ) : (
+              <p style={{ margin: 0 }}>Escribinos por WhatsApp para coordinar el pago de la seña.</p>
+            )}
+            <p style={{ margin: '10px 0 0 0' }}>
+              Ni bien confirmemos tu pago te avisamos por WhatsApp que tu turno quedó confirmado.
+            </p>
+          </div>
+        )}
+
+        {isPendingDeposit && (
+          <a
+            href={`https://wa.me/${MILI_WHATSAPP_NUMBER}?text=${encodeURIComponent(`¡Hola! Ya reservé mi turno y quiero enviarte el comprobante de la seña de $${depositAmount}.`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-primary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'center', textDecoration: 'none', marginTop: '5px' }}
+          >
+            <MessageCircle size={16} /> Enviar comprobante por WhatsApp
+          </a>
+        )}
 
         <div className={styles.ticketDetails}>
           <div className={styles.ticketRow}>
@@ -384,12 +471,75 @@ export default function BookingCalendar() {
     );
   }
 
+  // Clienta bloqueada por reincidencia: no puede reservar online
+  if (trustStatus === 'blocked') {
+    return (
+      <div className={`${styles.successCard} glass-card-gold animate-scale-in`}>
+        <div className={styles.successIcon}>
+          <ShieldX size={48} />
+        </div>
+        <h2 className={styles.successTitle}>No podés reservar online por el momento</h2>
+        <p>
+          Por incumplimientos reiterados con turnos anteriores, tu cuenta quedó bloqueada para reservar
+          a través de la web. Por favor, contactanos directamente por WhatsApp para coordinar.
+        </p>
+        <a
+          href={`https://wa.me/${MILI_WHATSAPP_NUMBER}?text=${encodeURIComponent('¡Hola! Quiero coordinar un turno con vos.')}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-primary"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'center', textDecoration: 'none', marginTop: '15px' }}
+        >
+          <MessageCircle size={16} /> Escribir por WhatsApp
+        </a>
+      </div>
+    );
+  }
+
   const isPrevDisabled = () => {
     const now = new Date();
     return year < now.getFullYear() || (year === now.getFullYear() && month <= now.getMonth());
   };
 
   return (
+    <>
+      {/* Cartel de aviso para clientas restringidas: debe leerlo y aceptarlo antes de reservar */}
+      {showRestrictedModal && trustStatus === 'restricted' && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(44, 34, 32, 0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px',
+        }}>
+          <div className="glass-card-gold animate-scale-in" style={{ maxWidth: '480px', width: '100%', padding: '30px', textAlign: 'center' }}>
+            <ShieldAlert size={40} style={{ color: 'var(--accent-gold)', marginBottom: '10px' }} />
+            <h3 style={{ marginBottom: '15px' }}>Aviso importante para tu próxima reserva</h3>
+            <p style={{ fontSize: '0.9rem', lineHeight: '1.6', textAlign: 'left' }}>
+              Por motivos de tiempo y valorando mi trabajo y el tiempo de las demás clientas, de ahora en más
+              para las reservas se deberá realizar un depósito de <strong>${depositAmount}</strong>, los cuales
+              serán reintegrados al finalizar el trabajo. Si el turno no se cancela con 24 horas de
+              anticipación, la seña no será devuelta y se procederá a la inmediata expulsión del salón.
+              Sepa entender, ¡muchas gracias!
+            </p>
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ marginTop: '15px' }}
+              onClick={() => {
+                setDepositAcknowledged(true);
+                setShowRestrictedModal(false);
+              }}
+            >
+              Entiendo y acepto
+            </button>
+          </div>
+        </div>
+      )}
+
     <div className={styles.bookingContainer}>
       {/* Columna Izquierda: Calendario */}
       <div className={`${styles.calendarCard} glass-card`}>
@@ -630,5 +780,6 @@ export default function BookingCalendar() {
         )}
       </div>
     </div>
+    </>
   );
 }

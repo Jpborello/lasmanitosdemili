@@ -22,6 +22,8 @@ export async function GET() {
       mp_enabled: false,
       mp_public_key: '',
       mp_deposit_amount: 2000,
+      restricted_deposit_amount: 5000,
+      deposit_payment_instructions: '',
       ...(isAdmin ? { mp_access_token: '' } : {})
     };
 
@@ -42,6 +44,10 @@ export async function GET() {
         settings.mp_public_key = row.value;
       } else if (row.key === 'mp_deposit_amount') {
         settings.mp_deposit_amount = parseInt(row.value, 10) || 2000;
+      } else if (row.key === 'restricted_deposit_amount') {
+        settings.restricted_deposit_amount = parseInt(row.value, 10) || 5000;
+      } else if (row.key === 'deposit_payment_instructions') {
+        settings.deposit_payment_instructions = row.value;
       } else if (row.key === 'mp_access_token' && isAdmin) {
         settings.mp_access_token = row.value;
       }
@@ -74,7 +80,9 @@ export async function POST(request) {
       mp_enabled,
       mp_access_token,
       mp_public_key,
-      mp_deposit_amount
+      mp_deposit_amount,
+      restricted_deposit_amount,
+      deposit_payment_instructions
     } = body;
 
     const db = await getDb();
@@ -142,6 +150,20 @@ export async function POST(request) {
       });
     }
 
+    if (restricted_deposit_amount !== undefined) {
+      await db.execute({
+        sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        args: ['restricted_deposit_amount', restricted_deposit_amount.toString()],
+      });
+    }
+
+    if (deposit_payment_instructions !== undefined) {
+      await db.execute({
+        sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        args: ['deposit_payment_instructions', deposit_payment_instructions.toString()],
+      });
+    }
+
     // Obtener la configuración actualizada para responder
     const result = await db.execute('SELECT key, value FROM settings');
     const settings = {
@@ -153,6 +175,8 @@ export async function POST(request) {
       mp_enabled: false,
       mp_public_key: '',
       mp_deposit_amount: 2000,
+      restricted_deposit_amount: 5000,
+      deposit_payment_instructions: '',
       mp_access_token: '',
     };
     for (const row of result.rows) {
@@ -172,6 +196,10 @@ export async function POST(request) {
         settings.mp_public_key = row.value;
       } else if (row.key === 'mp_deposit_amount') {
         settings.mp_deposit_amount = parseInt(row.value, 10) || 2000;
+      } else if (row.key === 'restricted_deposit_amount') {
+        settings.restricted_deposit_amount = parseInt(row.value, 10) || 5000;
+      } else if (row.key === 'deposit_payment_instructions') {
+        settings.deposit_payment_instructions = row.value;
       } else if (row.key === 'mp_access_token') {
         settings.mp_access_token = row.value;
       }

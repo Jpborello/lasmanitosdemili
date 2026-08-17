@@ -1,13 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { RefreshCw, Search, Users, Phone, Mail, Calendar, DollarSign } from 'lucide-react';
+import { RefreshCw, Search, Users, Phone, Mail, Calendar, DollarSign, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
 import styles from '@/styles/admin.module.css';
+
+const TRUST_LABELS = {
+  trusted: { label: 'Confiable', bg: 'rgba(136, 167, 131, 0.15)', color: 'var(--success)', Icon: ShieldCheck },
+  restricted: { label: 'Restringida (seña)', bg: 'rgba(197, 168, 128, 0.18)', color: 'var(--accent-gold)', Icon: ShieldAlert },
+  blocked: { label: 'Bloqueada', bg: 'rgba(203, 120, 112, 0.18)', color: 'var(--error)', Icon: ShieldX },
+};
 
 export default function ClientsTab({
   clients,
   loadingClients,
   fetchClients,
+  actionLoading,
+  onSetTrustStatus,
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name'); // 'name', 'visits', 'spent'
@@ -143,11 +151,16 @@ export default function ClientsTab({
                 <th className={styles.rankingTh} style={{ textAlign: 'center' }}>N° Visitas</th>
                 <th className={styles.rankingTh} style={{ textAlign: 'right' }}>Total Consumido</th>
                 <th className={styles.rankingTh}>Última Visita</th>
-                <th className={styles.rankingTh} style={{ width: '100px', textAlign: 'center' }}>Acciones</th>
+                <th className={styles.rankingTh} style={{ textAlign: 'center' }}>Estado</th>
+                <th className={styles.rankingTh} style={{ width: '140px', textAlign: 'center' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {sortedClients.map((client, idx) => {
+                const trustStatus = client.trust_status || 'trusted';
+                const trustInfo = TRUST_LABELS[trustStatus] || TRUST_LABELS.trusted;
+                const TrustIcon = trustInfo.Icon;
+                const isOn = trustStatus === 'trusted';
                 return (
                   <tr key={client.client_phone} className={styles.rankingRow}>
                     <td className={styles.rankingTd} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -178,16 +191,76 @@ export default function ClientsTab({
                       {formatLastVisit(client.last_visit)}
                     </td>
                     <td className={styles.rankingTd} style={{ textAlign: 'center' }}>
-                      <a
-                        href={getSimpleWhatsAppLink(client.client_phone, client.client_name)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.contactLink}
-                        style={{ display: 'inline-flex', justifyContent: 'center' }}
-                        title="Enviar WhatsApp"
+                      <span
+                        title={
+                          trustStatus === 'trusted'
+                            ? 'Clienta confiable, sin restricciones'
+                            : trustStatus === 'restricted'
+                            ? 'Debe pagar seña y esperar aprobación para su próximo turno'
+                            : 'No puede reservar turnos online'
+                        }
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          fontSize: '0.72rem',
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          fontWeight: 600,
+                          backgroundColor: trustInfo.bg,
+                          color: trustInfo.color,
+                        }}
                       >
-                        <Phone size={16} />
-                      </a>
+                        <TrustIcon size={12} /> {trustInfo.label}
+                      </span>
+                    </td>
+                    <td className={styles.rankingTd}>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center' }}>
+                        <a
+                          href={getSimpleWhatsAppLink(client.client_phone, client.client_name)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={styles.contactLink}
+                          style={{ display: 'inline-flex', justifyContent: 'center' }}
+                          title="Enviar WhatsApp"
+                        >
+                          <Phone size={16} />
+                        </a>
+
+                        {trustStatus !== 'blocked' && (
+                          <label
+                            className={styles.switch}
+                            title={isOn ? 'Confiable: apagá si faltó sin avisar' : 'Restringida: se le pedirá seña en su próximo turno'}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isOn}
+                              onChange={() => onSetTrustStatus(client.client_phone, isOn ? 'restricted' : 'trusted')}
+                              disabled={actionLoading}
+                            />
+                            <span className={styles.slider}></span>
+                          </label>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => onSetTrustStatus(client.client_phone, trustStatus === 'blocked' ? 'trusted' : 'blocked')}
+                          disabled={actionLoading}
+                          style={{
+                            background: 'none',
+                            border: '1px solid ' + (trustStatus === 'blocked' ? 'var(--success)' : 'var(--error)'),
+                            color: trustStatus === 'blocked' ? 'var(--success)' : 'var(--error)',
+                            borderRadius: 'var(--radius-sm)',
+                            padding: '4px 8px',
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                          title={trustStatus === 'blocked' ? 'Desbloquear clienta' : 'Bloquear clienta por completo (reincidente)'}
+                        >
+                          {trustStatus === 'blocked' ? 'Desbloquear' : 'Bloquear'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

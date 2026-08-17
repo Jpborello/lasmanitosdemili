@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar, Clock, Phone, Trash2, RefreshCw, UserX, RotateCcw } from 'lucide-react';
+import { Calendar, Clock, Phone, Trash2, RefreshCw, UserX, RotateCcw, BadgeCheck } from 'lucide-react';
 import styles from '@/styles/admin.module.css';
 
 const SERVICES_MAP = {
@@ -17,6 +17,7 @@ const SERVICES_MAP = {
 const STATUS_LABELS = {
   confirmed: { label: 'Confirmado', bg: 'rgba(136, 167, 131, 0.15)', color: 'var(--success)' },
   pending_payment: { label: 'Pendiente de pago', bg: 'rgba(197, 168, 128, 0.15)', color: 'var(--accent-gold)' },
+  pending_deposit: { label: 'Seña pendiente de aprobación', bg: 'rgba(197, 168, 128, 0.15)', color: 'var(--accent-gold)' },
   no_show: { label: 'No se presentó', bg: 'rgba(203, 120, 112, 0.15)', color: 'var(--error)' },
 };
 
@@ -30,6 +31,7 @@ export default function AppointmentsTab({
   fetchAppointments,
   handleCancelAppointment,
   handleMarkNoShow,
+  handleApproveDeposit,
   actionLoading,
 }) {
   const getWhatsAppLink = (phone, name, date, time) => {
@@ -202,6 +204,19 @@ export default function AppointmentsTab({
                 >
                   <Phone size={16} /> Remind
                 </a>
+
+                {/* Botón Aprobar seña (solo para turnos con seña manual pendiente) */}
+                {appt.status === 'pending_deposit' && (
+                  <button
+                    type="button"
+                    className={styles.noShowBtn}
+                    onClick={() => handleApproveDeposit(appt.id)}
+                    disabled={actionLoading}
+                    title="Confirmar que la seña fue recibida y aprobar el turno"
+                  >
+                    <BadgeCheck size={16} />
+                  </button>
+                )}
 
                 {/* Botón No-show */}
                 {appt.status === 'no_show' ? (

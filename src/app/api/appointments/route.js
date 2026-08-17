@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
-import { notifyAdminNewAppointment, sendClientConfirmation } from '@/lib/whatsapp';
+import { notifyAdminNewAppointment, sendClientConfirmation, notifyAdminDepositPending, sendClientDepositInstructions } from '@/lib/whatsapp';
 import { sendClientConfirmationEmail } from '@/lib/email';
 import { isAdminAuthenticated } from '@/lib/auth';
+import { MILI_WHATSAPP_NUMBER } from '@/lib/constants';
 
 // GET: Obtener turnos
 export async function GET(request) {
@@ -124,6 +125,8 @@ export async function POST(request) {
       mp_enabled: false,
       mp_access_token: '',
       mp_deposit_amount: 2000,
+      restricted_deposit_amount: 5000,
+      deposit_payment_instructions: '',
     };
     for (const row of settingsResult.rows) {
       if (row.key === 'enable_18_weekday') {
@@ -142,6 +145,10 @@ export async function POST(request) {
         settings.mp_access_token = row.value;
       } else if (row.key === 'mp_deposit_amount') {
         settings.mp_deposit_amount = parseInt(row.value, 10) || 2000;
+      } else if (row.key === 'restricted_deposit_amount') {
+        settings.restricted_deposit_amount = parseInt(row.value, 10) || 5000;
+      } else if (row.key === 'deposit_payment_instructions') {
+        settings.deposit_payment_instructions = row.value;
       }
     }
 
@@ -231,11 +238,36 @@ export async function POST(request) {
       args: [cleanPhone, client_name.trim(), client_email ? client_email.trim() : null, created_at],
     });
 
-    // Validar si requiere cobro de seña con Mercado Pago
+    // Verificar el estado de confianza de la clienta (confiable / restringida / bloqueada)
+    const trustResult = await db.execute({
+      sql: 'SELECT trust_status FROM clients WHERE phone = ?',
+      args: [cleanPhone],
+    });
+    const trustStatus = trustResult.rows[0]?.trust_status || 'trusted';
+
+    // Clienta bloqueada por reincidencia: no puede reservar online, debe contactar a Mili
+    if (trustStatus === 'blocked') {
+      return NextResponse.json({
+        error: 'Por el momento no podés reservar turnos online. Por favor, contactanos directamente por WhatsApp para coordinar tu turno.',
+        blocked: true,
+        whatsappNumber: MILI_WHATSAPP_NUMBER,
+      }, { status: 403 });
+    }
+
+    // Validar si requiere cobro de seña (Mercado Pago automático, o seña manual para restringidas)
     let paymentRequired = false;
     let paymentUrl = null;
+    let depositRequired = false;
+    let depositAmount = 0;
+    let depositInstructions = '';
 
-    if (settings.mp_enabled && settings.mp_access_token) {
+    if (trustStatus === 'restricted') {
+      // Clienta restringida por incumplimientos previos: seña obligatoria con aprobación
+      // manual de Mili (no se usa la pasarela automática de Mercado Pago para este caso).
+      depositRequired = true;
+      depositAmount = settings.restricted_deposit_amount;
+      depositInstructions = settings.deposit_payment_instructions;
+    } else if (settings.mp_enabled && settings.mp_access_token) {
       paymentRequired = true;
       const protocol = request.headers.get('x-forwarded-proto') || 'http';
       const host = request.headers.get('host');
@@ -282,7 +314,7 @@ export async function POST(request) {
       }
     }
 
-    const appointmentStatus = paymentRequired ? 'pending_payment' : 'confirmed';
+    const appointmentStatus = depositRequired ? 'pending_deposit' : (paymentRequired ? 'pending_payment' : 'confirmed');
 
     try {
       await db.execute({
@@ -291,14 +323,20 @@ export async function POST(request) {
         args: [id, client_name.trim(), cleanPhone, client_email || null, appointment_date, appointment_time, service, price, created_at, appointmentStatus],
       });
 
+      const appointmentObj = { id, client_name: client_name.trim(), client_phone: cleanPhone, client_email, appointment_date, appointment_time, service, price, status: appointmentStatus };
+
       // Si el turno queda confirmado automáticamente (sin seña previa), enviar WhatsApps y email
       if (appointmentStatus === 'confirmed') {
-        const appointmentObj = { id, client_name: client_name.trim(), client_phone: cleanPhone, client_email, appointment_date, appointment_time, service, price, status: appointmentStatus };
         notifyAdminNewAppointment(appointmentObj).catch(err => console.error('Error enviando WhatsApp a Mili:', err));
         sendClientConfirmation(appointmentObj).catch(err => console.error('Error enviando WhatsApp a clienta:', err));
         if (client_email) {
           sendClientConfirmationEmail(appointmentObj).catch(err => console.error('Error enviando email a clienta:', err));
         }
+      } else if (appointmentStatus === 'pending_deposit') {
+        // Clienta restringida: avisar a Mili que hay una seña para revisar, y a la clienta
+        // las instrucciones de pago. El turno se confirma recién cuando Mili lo apruebe.
+        notifyAdminDepositPending(appointmentObj, depositAmount).catch(err => console.error('Error enviando WhatsApp de seña pendiente a Mili:', err));
+        sendClientDepositInstructions(appointmentObj, depositAmount, depositInstructions).catch(err => console.error('Error enviando WhatsApp de instrucciones de seña a clienta:', err));
       }
     } catch (dbError) {
       if (
@@ -317,6 +355,9 @@ export async function POST(request) {
       success: true,
       paymentRequired,
       paymentUrl,
+      depositRequired,
+      depositAmount,
+      depositInstructions,
       appointment: { id, client_name: client_name.trim(), client_phone: cleanPhone, client_email, appointment_date, appointment_time, service, price, status: appointmentStatus }
     });
 
@@ -352,10 +393,75 @@ export async function PATCH(request) {
     }
 
     const db = await getDb();
+
+    // Obtener el turno actual ANTES de actualizar, para saber su estado previo
+    // (necesario para escalar la confianza de la clienta y para saber si hay que
+    // notificarle que su seña fue aprobada).
+    const apptResult = await db.execute({
+      sql: 'SELECT * FROM appointments WHERE id = ?',
+      args: [id],
+    });
+
+    if (apptResult.rows.length === 0) {
+      return NextResponse.json({ error: 'Turno no encontrado' }, { status: 404 });
+    }
+
+    const appt = apptResult.rows[0];
+    const previousStatus = appt.status;
+
     await db.execute({
       sql: 'UPDATE appointments SET status = ? WHERE id = ?',
       args: [status, id],
     });
+
+    // Si se marca como "no asistió", escalamos automáticamente la confianza de la clienta:
+    // confiable -> restringida (debe pagar seña la próxima vez) -> bloqueada (reincidente,
+    // no puede reservar online). Mili siempre puede revertir esto a mano desde el panel.
+    if (status === 'no_show') {
+      try {
+        const clientResult = await db.execute({
+          sql: 'SELECT trust_status FROM clients WHERE phone = ?',
+          args: [appt.client_phone],
+        });
+        const currentTrust = clientResult.rows[0]?.trust_status || 'trusted';
+        let nextTrust = currentTrust;
+        if (currentTrust === 'trusted') {
+          nextTrust = 'restricted';
+        } else if (currentTrust === 'restricted') {
+          nextTrust = 'blocked';
+        }
+
+        if (nextTrust !== currentTrust) {
+          await db.execute({
+            sql: 'UPDATE clients SET trust_status = ? WHERE phone = ?',
+            args: [nextTrust, appt.client_phone],
+          });
+        }
+      } catch (trustError) {
+        console.error('Error al escalar el estado de confianza de la clienta:', trustError);
+      }
+    }
+
+    // Si Mili aprueba manualmente una seña pendiente (pasa de pending_deposit a confirmed),
+    // avisamos a la clienta por WhatsApp y email igual que en una confirmación automática.
+    if (status === 'confirmed' && (previousStatus === 'pending_deposit' || previousStatus === 'pending_payment')) {
+      const appointmentObj = {
+        id: appt.id,
+        client_name: appt.client_name,
+        client_phone: appt.client_phone,
+        client_email: appt.client_email,
+        appointment_date: appt.appointment_date,
+        appointment_time: appt.appointment_time,
+        service: appt.service,
+        price: appt.price,
+        status: 'confirmed',
+      };
+      notifyAdminNewAppointment(appointmentObj).catch(err => console.error('Error enviando WhatsApp admin al aprobar seña:', err));
+      sendClientConfirmation(appointmentObj).catch(err => console.error('Error enviando WhatsApp a clienta al aprobar seña:', err));
+      if (appt.client_email) {
+        sendClientConfirmationEmail(appointmentObj).catch(err => console.error('Error enviando email a clienta al aprobar seña:', err));
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

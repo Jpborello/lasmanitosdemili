@@ -16,6 +16,8 @@ export default function SettingsTab({
   mpAccessToken,
   mpPublicKey,
   mpDepositAmount,
+  restrictedDepositAmount,
+  depositPaymentInstructions,
   actionLoading,
   onToggle18,
   onToggleWeekday,
@@ -26,6 +28,7 @@ export default function SettingsTab({
   onAddExtraSlot,
   onRemoveExtraSlot,
   onSaveMercadoPago,
+  onSaveDepositSettings,
 }) {
   const [dateToBlock, setDateToBlock] = useState('');
   const [slotDateToBlock, setSlotDateToBlock] = useState('');
@@ -38,10 +41,15 @@ export default function SettingsTab({
   const [localMpPublicKey, setLocalMpPublicKey] = useState(mpPublicKey || '');
   const [localMpDepositAmount, setLocalMpDepositAmount] = useState(mpDepositAmount || 2000);
 
+  const [localRestrictedDepositAmount, setLocalRestrictedDepositAmount] = useState(restrictedDepositAmount || 5000);
+  const [localDepositInstructions, setLocalDepositInstructions] = useState(depositPaymentInstructions || '');
+
   const [prevMpEnabled, setPrevMpEnabled] = useState(mpEnabled);
   const [prevMpAccessToken, setPrevMpAccessToken] = useState(mpAccessToken);
   const [prevMpPublicKey, setPrevMpPublicKey] = useState(mpPublicKey);
   const [prevMpDepositAmount, setPrevMpDepositAmount] = useState(mpDepositAmount);
+  const [prevRestrictedDepositAmount, setPrevRestrictedDepositAmount] = useState(restrictedDepositAmount);
+  const [prevDepositInstructions, setPrevDepositInstructions] = useState(depositPaymentInstructions);
 
   if (mpEnabled !== prevMpEnabled) {
     setPrevMpEnabled(mpEnabled);
@@ -58,6 +66,14 @@ export default function SettingsTab({
   if (mpDepositAmount !== prevMpDepositAmount) {
     setPrevMpDepositAmount(mpDepositAmount);
     setLocalMpDepositAmount(mpDepositAmount || 2000);
+  }
+  if (restrictedDepositAmount !== prevRestrictedDepositAmount) {
+    setPrevRestrictedDepositAmount(restrictedDepositAmount);
+    setLocalRestrictedDepositAmount(restrictedDepositAmount || 5000);
+  }
+  if (depositPaymentInstructions !== prevDepositInstructions) {
+    setPrevDepositInstructions(depositPaymentInstructions);
+    setLocalDepositInstructions(depositPaymentInstructions || '');
   }
 
   const handleDateSubmit = (e) => {
@@ -88,6 +104,14 @@ export default function SettingsTab({
       mp_access_token: localMpAccessToken,
       mp_public_key: localMpPublicKey,
       mp_deposit_amount: parseInt(localMpDepositAmount, 10) || 2000
+    });
+  };
+
+  const handleDepositSettingsSubmit = (e) => {
+    e.preventDefault();
+    onSaveDepositSettings({
+      restricted_deposit_amount: parseInt(localRestrictedDepositAmount, 10) || 5000,
+      deposit_payment_instructions: localDepositInstructions,
     });
   };
 
@@ -389,6 +413,56 @@ export default function SettingsTab({
             No hay horarios extra agregados.
           </p>
         )}
+      </div>
+
+      {/* Seña para Clientas Restringidas */}
+      <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+        <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Seña para Clientas Restringidas
+        </h3>
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '15px' }}>
+          Monto e instrucciones de pago que se le muestran a una clienta cuando está marcada como
+          &quot;Restringida&quot; (por ejemplo, tras faltar sin avisar) en la pestaña de Clientas.
+          El turno queda a la espera hasta que apruebes la seña manualmente desde Turnos.
+        </p>
+
+        <form onSubmit={handleDepositSettingsSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Monto de la Seña (ARS) *</label>
+            <input
+              type="number"
+              min="0"
+              required
+              placeholder="Ej: 5000"
+              className="input"
+              style={{ width: '100%', fontSize: '0.85rem', padding: '8px 12px' }}
+              value={localRestrictedDepositAmount}
+              onChange={(e) => setLocalRestrictedDepositAmount(e.target.value)}
+              disabled={actionLoading}
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Instrucciones de Pago (Alias, CBU, WhatsApp, etc.)</label>
+            <textarea
+              placeholder="Ej: Alias: MILI.MANITOS.MP - Enviame el comprobante por WhatsApp al 341-302-2674"
+              className="input"
+              style={{ width: '100%', fontSize: '0.85rem', padding: '8px 12px', minHeight: '80px', resize: 'vertical', fontFamily: 'inherit' }}
+              value={localDepositInstructions}
+              onChange={(e) => setLocalDepositInstructions(e.target.value)}
+              disabled={actionLoading}
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="btn-primary"
+            style={{ width: '100%', padding: '10px', fontSize: '0.8rem', marginTop: '5px' }}
+            disabled={actionLoading}
+          >
+            Guardar Configuración de Seña
+          </button>
+        </form>
       </div>
 
       {/* Integración Mercado Pago */}

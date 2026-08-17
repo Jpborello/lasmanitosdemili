@@ -172,3 +172,42 @@ Por favor, avísame con anticipación si tenés algún inconveniente. ¡Nos vemo
 
   return await sendWhatsAppMessage({ to: appointment.client_phone, text: message });
 }
+
+/**
+ * 4. Avisar a Mili que una clienta restringida reservó y su seña está pendiente de aprobación
+ */
+export async function notifyAdminDepositPending(appointment, depositAmount) {
+  const miliPhone = process.env.MILI_PHONE_NUMBER || '5493413022674';
+
+  const message = `⚠️ *SEÑA PENDIENTE DE APROBACIÓN*
+
+👤 *Clienta:* ${appointment.client_name} (restringida por incumplimientos previos)
+📱 *Teléfono:* ${appointment.client_phone}
+📅 *Fecha:* ${appointment.appointment_date}
+⏰ *Hora:* ${appointment.appointment_time} hs
+✨ *Servicio:* ${appointment.service}
+💰 *Seña requerida:* $${depositAmount}
+
+El turno queda en espera hasta que confirmes el pago de la seña desde el panel de Turnos.`;
+
+  return await sendWhatsAppMessage({ to: miliPhone, text: message });
+}
+
+/**
+ * 5. Avisar a la clienta restringida que su turno quedó a la espera del pago de la seña
+ */
+export async function sendClientDepositInstructions(appointment, depositAmount, instructions) {
+  const instructionsBlock = instructions && instructions.trim()
+    ? `\n\n📌 *Cómo pagar:*\n${instructions.trim()}`
+    : '';
+
+  const message = `💅 *¡Hola ${appointment.client_name}!*
+
+Tu turno para el *${appointment.appointment_date}* a las *${appointment.appointment_time} hs* (${appointment.service}) quedó reservado, pero está sujeto al pago de una seña de *$${depositAmount}*.
+
+Por motivos de tiempo y valorando mi trabajo y el tiempo de las demás clientas, para las reservas se debe realizar un depósito de $${depositAmount}, el cual será reintegrado al finalizar el trabajo. Si el turno no se cancela con 24 horas de anticipación, la seña no será devuelta y se procederá a la inmediata expulsión del salón. Espero sepas entender, ¡muchas gracias! 💖${instructionsBlock}
+
+Ni bien reciba tu pago, te confirmo el turno por acá. 😊`;
+
+  return await sendWhatsAppMessage({ to: appointment.client_phone, text: message });
+}

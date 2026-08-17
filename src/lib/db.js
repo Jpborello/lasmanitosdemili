@@ -173,8 +173,28 @@ export async function getDb() {
           phone TEXT PRIMARY KEY,
           name TEXT NOT NULL,
           email TEXT,
-          created_at TEXT NOT NULL
+          created_at TEXT NOT NULL,
+          trust_status TEXT NOT NULL DEFAULT 'trusted'
         )
+      `);
+
+      // Intentar agregar la columna trust_status en caso de que la tabla ya existiese sin ella
+      // Valores posibles: 'trusted' (confiable, sin restricciones), 'restricted' (debe pagar
+      // seña y esperar aprobación de Mili) y 'blocked' (no puede reservar online, reincidente).
+      try {
+        await db.execute(`
+          ALTER TABLE clients ADD COLUMN trust_status TEXT NOT NULL DEFAULT 'trusted'
+        `);
+      } catch (trustStatusError) {
+        // La columna ya existía, ignoramos el error
+      }
+
+      // Insertar configuración por defecto de seña para clientas restringidas
+      await db.execute(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('restricted_deposit_amount', '5000')
+      `);
+      await db.execute(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('deposit_payment_instructions', 'Alias para transferencia: lasmanitosdemili')
       `);
 
       // Migrar clientas de turnos existentes
