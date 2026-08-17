@@ -6,6 +6,7 @@ import styles from '@/styles/booking.module.css';
 import { DEFAULT_SERVICES, MILI_WHATSAPP_NUMBER } from '@/lib/constants';
 import { useClientSession } from '@/hooks/useClientSession';
 import { fireConfetti } from '@/lib/confetti';
+import { normalizePhone } from '@/lib/phone';
 
 export default function BookingCalendar() {
   const {
@@ -100,7 +101,7 @@ export default function BookingCalendar() {
   // Consultar el estado de confianza de la clienta apenas se conoce su teléfono, para
   // mostrarle el cartel de aviso (restringida) o el bloqueo total (bloqueada) a tiempo.
   useEffect(() => {
-    const digits = (clientPhone || '').replace(/\D/g, '');
+    const digits = normalizePhone(clientPhone);
     if (digits.length < 8) {
       const timeoutId = setTimeout(() => setTrustStatus('trusted'), 0);
       return () => clearTimeout(timeoutId);

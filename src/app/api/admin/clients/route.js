@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { cookies } from 'next/headers';
 import { isAdminAuthenticated } from '@/lib/auth';
+import { normalizePhone } from '@/lib/phone';
 
 export async function GET() {
   try {
@@ -56,7 +57,7 @@ export async function PATCH(request) {
       return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 });
     }
 
-    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanPhone = normalizePhone(phone);
     const db = await getDb();
 
     const result = await db.execute({

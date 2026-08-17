@@ -6,6 +6,7 @@ import { notifyAdminNewAppointment, sendClientConfirmation, notifyAdminDepositPe
 import { sendClientConfirmationEmail } from '@/lib/email';
 import { isAdminAuthenticated } from '@/lib/auth';
 import { MILI_WHATSAPP_NUMBER } from '@/lib/constants';
+import { normalizePhone } from '@/lib/phone';
 
 // GET: Obtener turnos
 export async function GET(request) {
@@ -219,7 +220,7 @@ export async function POST(request) {
     // 5. Insertar turno en la base de datos
     const id = crypto.randomUUID();
     const created_at = new Date().toISOString();
-    const cleanPhone = client_phone.replace(/\D/g, '');
+    const cleanPhone = normalizePhone(client_phone);
 
     // Obtener precio correspondiente al servicio configurado en la base de datos
     const serviceResult = await db.execute({

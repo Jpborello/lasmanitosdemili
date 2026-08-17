@@ -1,5 +1,6 @@
 import { createClient } from '@libsql/client';
 import { DEFAULT_SERVICES } from './constants';
+import { normalizePhone } from './phone';
 
 const url = process.env.DATABASE_URL || 'file:local.db';
 const authToken = process.env.DATABASE_AUTH_TOKEN;
@@ -187,6 +188,61 @@ export async function getDb() {
         `);
       } catch (trustStatusError) {
         // La columna ya existía, ignoramos el error
+      }
+
+      // Corregir clientas ya guardadas con el teléfono sin normalizar (ej. "03417981212"
+      // en vez de "3417981212"). Sin esto, la misma persona puede quedar registrada dos
+      // veces según cómo haya tipeado el número, y una restricción puesta en una fila no
+      // se aplica a la otra. Es seguro correrlo varias veces: una vez normalizados los
+      // teléfonos existentes, no vuelve a encontrar nada para corregir.
+      try {
+        const clientsToCheck = await db.execute('SELECT phone, trust_status FROM clients');
+        const trustRank = { trusted: 0, restricted: 1, blocked: 2 };
+
+        for (const row of clientsToCheck.rows) {
+          const oldPhone = row.phone;
+          const newPhone = normalizePhone(oldPhone);
+
+          if (!newPhone || newPhone === oldPhone) continue;
+
+          const existingResult = await db.execute({
+            sql: 'SELECT trust_status FROM clients WHERE phone = ?',
+            args: [newPhone],
+          });
+
+          if (existingResult.rows.length > 0) {
+            // Ya existe una clienta con el teléfono normalizado: fusionamos, quedándonos
+            // con el estado más restrictivo entre las dos filas duplicadas.
+            const existingTrust = existingResult.rows[0].trust_status || 'trusted';
+            const oldTrust = row.trust_status || 'trusted';
+            const finalTrust = (trustRank[oldTrust] ?? 0) > (trustRank[existingTrust] ?? 0) ? oldTrust : existingTrust;
+
+            await db.execute({
+              sql: 'UPDATE clients SET trust_status = ? WHERE phone = ?',
+              args: [finalTrust, newPhone],
+            });
+            await db.execute({
+              sql: 'UPDATE appointments SET client_phone = ? WHERE client_phone = ?',
+              args: [newPhone, oldPhone],
+            });
+            await db.execute({
+              sql: 'DELETE FROM clients WHERE phone = ?',
+              args: [oldPhone],
+            });
+          } else {
+            // No hay conflicto: solo renombramos la clave al formato normalizado.
+            await db.execute({
+              sql: 'UPDATE clients SET phone = ? WHERE phone = ?',
+              args: [newPhone, oldPhone],
+            });
+            await db.execute({
+              sql: 'UPDATE appointments SET client_phone = ? WHERE client_phone = ?',
+              args: [newPhone, oldPhone],
+            });
+          }
+        }
+      } catch (phoneNormalizationError) {
+        console.error('Error al normalizar teléfonos existentes de clientas:', phoneNormalizationError);
       }
 
       // Insertar configuración por defecto de seña para clientas restringidas

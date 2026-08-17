@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { normalizePhone } from '@/lib/phone';
 
 export async function POST(request) {
   try {
@@ -10,7 +11,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Faltan campos obligatorios (nombre y teléfono)' }, { status: 400 });
     }
 
-    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanPhone = normalizePhone(phone);
     if (!cleanPhone) {
       return NextResponse.json({ error: 'Número de teléfono inválido' }, { status: 400 });
     }

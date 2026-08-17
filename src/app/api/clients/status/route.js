@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { normalizePhone } from '@/lib/phone';
 
 // GET: Endpoint público para que la web de reservas sepa si una clienta
 // está confiable, restringida (debe pagar seña) o bloqueada, antes de
@@ -13,7 +14,7 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Falta el teléfono' }, { status: 400 });
     }
 
-    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanPhone = normalizePhone(phone);
     if (!cleanPhone) {
       return NextResponse.json({ trust_status: 'trusted' });
     }
