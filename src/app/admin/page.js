@@ -23,7 +23,7 @@ export default function AdminDashboard() {
   // Appointments State
   const [appointments, setAppointments] = useState([]);
   const [selectedDate, setSelectedDate] = useState('');
-  const [viewMode, setViewMode] = useState('day'); // 'day' o 'all'
+  const [viewMode, setViewMode] = useState('day'); // 'day', 'all' o 'pending' (turnos con seña por confirmar)
   const [loadingData, setLoadingData] = useState(false);
 
   // Reviews State
