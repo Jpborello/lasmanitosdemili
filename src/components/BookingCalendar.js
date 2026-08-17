@@ -511,12 +511,13 @@ export default function BookingCalendar() {
           inset: 0,
           backgroundColor: 'rgba(44, 34, 32, 0.6)',
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'center',
           zIndex: 1000,
           padding: '20px',
+          overflowY: 'auto',
         }}>
-          <div className="glass-card-gold animate-scale-in" style={{ maxWidth: '480px', width: '100%', padding: '30px', textAlign: 'center' }}>
+          <div className="glass-card-gold animate-scale-in" style={{ maxWidth: '480px', width: '100%', padding: '30px', textAlign: 'center', marginTop: '40px', maxHeight: 'calc(100vh - 80px)', overflowY: 'auto' }}>
             <ShieldAlert size={40} style={{ color: 'var(--accent-gold)', marginBottom: '10px' }} />
             <h3 style={{ marginBottom: '15px' }}>Aviso importante para tu próxima reserva</h3>
             <p style={{ fontSize: '0.9rem', lineHeight: '1.6', textAlign: 'left' }}>
