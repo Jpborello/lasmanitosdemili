@@ -245,6 +245,13 @@ export async function getDb() {
         console.error('Error al normalizar teléfonos existentes de clientas:', phoneNormalizationError);
       }
 
+      // Meses bloqueados por completo (formato YYYY-MM, separados por coma). Las fechas de
+      // meses ya reservados por clientas siguen intactas: esto solo impide reservar turnos
+      // NUEVOS dentro de ese mes, igual que el bloqueo de fechas puntuales.
+      await db.execute(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('blocked_months', '')
+      `);
+
       // Insertar configuración por defecto de seña para clientas restringidas
       await db.execute(`
         INSERT OR IGNORE INTO settings (key, value) VALUES ('restricted_deposit_amount', '5000')

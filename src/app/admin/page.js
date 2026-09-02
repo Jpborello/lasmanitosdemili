@@ -44,6 +44,7 @@ export default function AdminDashboard() {
   const [enable18Weekday, setEnable18Weekday] = useState(true);
   const [blockedWeekdays, setBlockedWeekdays] = useState([0]); // 0 = Domingo cerrado por defecto
   const [blockedDates, setBlockedDates] = useState([]);
+  const [blockedMonths, setBlockedMonths] = useState([]); // formato 'YYYY-MM'
   const [blockedSlots, setBlockedSlots] = useState([]);
   const [extraSlots, setExtraSlots] = useState([]);
   const [mpEnabled, setMpEnabled] = useState(false);
@@ -99,6 +100,10 @@ export default function AdminDashboard() {
         if (data.blocked_dates !== undefined) {
           const list = data.blocked_dates.split(',').map(d => d.trim()).filter(Boolean);
           setBlockedDates(list);
+        }
+        if (data.blocked_months !== undefined) {
+          const list = data.blocked_months.split(',').map(m => m.trim()).filter(Boolean);
+          setBlockedMonths(list);
         }
         if (data.blocked_slots !== undefined) {
           const list = data.blocked_slots.split(',').map(s => s.trim()).filter(Boolean);
@@ -391,6 +396,66 @@ export default function AdminDashboard() {
         setBlockedDates(nextBlocked);
       } else {
         alert('No se pudo desbloquear la fecha.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error al desbloquear.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Bloquear un mes completo (ej. vacaciones largas). No afecta turnos ya reservados
+  // dentro de ese mes, sólo impide que se agenden turnos nuevos.
+  const handleAddBlockedMonth = async (monthStr) => {
+    if (!monthStr) return;
+
+    if (blockedMonths.includes(monthStr)) {
+      alert('Este mes ya está bloqueado.');
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const nextBlocked = [...blockedMonths, monthStr];
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked_months: nextBlocked.join(',') }),
+      });
+
+      if (res.ok) {
+        setBlockedMonths(nextBlocked);
+      } else {
+        alert('No se pudo bloquear el mes.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error al bloquear.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Desbloquear un mes completo
+  const handleRemoveBlockedMonth = async (monthStr) => {
+    const formattedMonth = new Date(`${monthStr}-01T00:00:00`).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    const confirmUnlock = window.confirm(`¿Estás segura de que deseas desbloquear ${formattedMonth}?`);
+    if (!confirmUnlock) return;
+
+    setActionLoading(true);
+    try {
+      const nextBlocked = blockedMonths.filter(m => m !== monthStr);
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked_months: nextBlocked.join(',') }),
+      });
+
+      if (res.ok) {
+        setBlockedMonths(nextBlocked);
+      } else {
+        alert('No se pudo desbloquear el mes.');
       }
     } catch (err) {
       console.error(err);
@@ -795,6 +860,7 @@ export default function AdminDashboard() {
             enable18Weekday={enable18Weekday}
             blockedWeekdays={blockedWeekdays}
             blockedDates={blockedDates}
+            blockedMonths={blockedMonths}
             blockedSlots={blockedSlots}
             extraSlots={extraSlots}
             mpEnabled={mpEnabled}
@@ -808,6 +874,8 @@ export default function AdminDashboard() {
             onToggleWeekday={handleToggleWeekday}
             onAddBlockedDate={handleAddBlockedDate}
             onRemoveBlockedDate={handleRemoveBlockedDate}
+            onAddBlockedMonth={handleAddBlockedMonth}
+            onRemoveBlockedMonth={handleRemoveBlockedMonth}
             onAddBlockedSlot={handleAddBlockedSlot}
             onRemoveBlockedSlot={handleRemoveBlockedSlot}
             onAddExtraSlot={handleAddExtraSlot}

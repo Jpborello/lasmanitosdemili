@@ -31,6 +31,7 @@ export default function BookingCalendar() {
   const [enable18Weekday, setEnable18Weekday] = useState(true);
   const [blockedWeekdays, setBlockedWeekdays] = useState([0]); // 0 = Domingo cerrado por defecto
   const [blockedDates, setBlockedDates] = useState([]);
+  const [blockedMonths, setBlockedMonths] = useState([]); // formato 'YYYY-MM'
   const [blockedSlots, setBlockedSlots] = useState([]);
   const [extraSlots, setExtraSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -70,6 +71,10 @@ export default function BookingCalendar() {
         if (data.blocked_dates !== undefined) {
           const list = data.blocked_dates.split(',').map(d => d.trim()).filter(Boolean);
           setBlockedDates(list);
+        }
+        if (data.blocked_months !== undefined) {
+          const list = data.blocked_months.split(',').map(m => m.trim()).filter(Boolean);
+          setBlockedMonths(list);
         }
         if (data.blocked_slots !== undefined) {
           const list = data.blocked_slots.split(',').map(s => s.trim()).filter(Boolean);
@@ -212,13 +217,14 @@ export default function BookingCalendar() {
       
       const isBlockedDate = blockedDates.includes(dateStr);
       const isBlockedWeekday = blockedWeekdays.includes(dateObj.getDay());
-      
+      const isBlockedMonth = blockedMonths.includes(dateStr.slice(0, 7));
+
       days.push({
         dayNum: i,
         isCurrentMonth: true,
         date: dateObj,
         isToday: dateCopy.getTime() === today.getTime(),
-        isDisabled: dateCopy.getTime() < today.getTime() || isBlockedWeekday || isBlockedDate,
+        isDisabled: dateCopy.getTime() < today.getTime() || isBlockedWeekday || isBlockedDate || isBlockedMonth,
         isSunday: dateObj.getDay() === 0,
       });
     }
@@ -568,6 +574,12 @@ export default function BookingCalendar() {
           </button>
         </div>
 
+        {blockedMonths.includes(`${year}-${String(month + 1).padStart(2, '0')}`) && (
+          <p style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--error)', fontWeight: 600, marginBottom: '10px' }}>
+            Este mes no está disponible para reservar turnos por el momento.
+          </p>
+        )}
+
         <div className={styles.weekDaysRow}>
           <span>Dom</span>
           <span>Lun</span>
@@ -765,6 +777,9 @@ export default function BookingCalendar() {
               </p>
               <p style={{ margin: 0, borderTop: '1px solid rgba(212, 163, 89, 0.15)', paddingTop: '8px' }}>
                 🚨 <strong>Turnos de Urgencia:</strong> Si necesitás un turno urgente fuera de los días u horarios disponibles en la agenda, tendrá un recargo adicional del 50% (el cual se abona con anticipación). Por favor, contactanos por WhatsApp para coordinarlo.
+              </p>
+              <p style={{ margin: 0, borderTop: '1px solid rgba(212, 163, 89, 0.15)', paddingTop: '8px' }}>
+                💅 <strong>Retirado de otro salón:</strong> Tiene un costo adicional. Consultar.
               </p>
             </div>
 

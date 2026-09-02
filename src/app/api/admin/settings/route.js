@@ -17,6 +17,7 @@ export async function GET() {
       enable_18_weekday: true,
       blocked_weekdays: '0', // 0 = Domingo cerrado por defecto
       blocked_dates: '',
+      blocked_months: '',
       blocked_slots: '',
       extra_slots: '',
       mp_enabled: false,
@@ -34,6 +35,8 @@ export async function GET() {
         settings.blocked_weekdays = row.value;
       } else if (row.key === 'blocked_dates') {
         settings.blocked_dates = row.value;
+      } else if (row.key === 'blocked_months') {
+        settings.blocked_months = row.value;
       } else if (row.key === 'blocked_slots') {
         settings.blocked_slots = row.value;
       } else if (row.key === 'extra_slots') {
@@ -75,6 +78,7 @@ export async function POST(request) {
       enable_18_weekday,
       blocked_weekdays,
       blocked_dates,
+      blocked_months,
       blocked_slots,
       extra_slots,
       mp_enabled,
@@ -105,6 +109,13 @@ export async function POST(request) {
       await db.execute({
         sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
         args: ['blocked_dates', blocked_dates.toString()],
+      });
+    }
+
+    if (blocked_months !== undefined) {
+      await db.execute({
+        sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        args: ['blocked_months', blocked_months.toString()],
       });
     }
 
@@ -170,6 +181,7 @@ export async function POST(request) {
       enable_18_weekday: true,
       blocked_weekdays: '0',
       blocked_dates: '',
+      blocked_months: '',
       blocked_slots: '',
       extra_slots: '',
       mp_enabled: false,
@@ -186,6 +198,8 @@ export async function POST(request) {
         settings.blocked_weekdays = row.value;
       } else if (row.key === 'blocked_dates') {
         settings.blocked_dates = row.value;
+      } else if (row.key === 'blocked_months') {
+        settings.blocked_months = row.value;
       } else if (row.key === 'blocked_slots') {
         settings.blocked_slots = row.value;
       } else if (row.key === 'extra_slots') {

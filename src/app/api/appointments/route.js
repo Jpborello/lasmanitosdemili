@@ -121,6 +121,7 @@ export async function POST(request) {
       enable_18_weekday: true,
       blocked_weekdays: '0', // 0 = Domingo cerrado por defecto
       blocked_dates: '',
+      blocked_months: '',
       blocked_slots: '',
       extra_slots: '',
       mp_enabled: false,
@@ -136,6 +137,8 @@ export async function POST(request) {
         settings.blocked_weekdays = row.value;
       } else if (row.key === 'blocked_dates') {
         settings.blocked_dates = row.value;
+      } else if (row.key === 'blocked_months') {
+        settings.blocked_months = row.value;
       } else if (row.key === 'blocked_slots') {
         settings.blocked_slots = row.value;
       } else if (row.key === 'extra_slots') {
@@ -157,6 +160,13 @@ export async function POST(request) {
     const blockedDatesArray = settings.blocked_dates.split(',').map(d => d.trim()).filter(Boolean);
     if (blockedDatesArray.includes(appointment_date)) {
       return NextResponse.json({ error: 'La fecha seleccionada no está disponible (día bloqueado)' }, { status: 400 });
+    }
+
+    // 1b. Validar si el mes completo de la fecha del turno está bloqueado
+    const blockedMonthsArray = settings.blocked_months.split(',').map(m => m.trim()).filter(Boolean);
+    const monthKey = appointment_date.slice(0, 7); // 'YYYY-MM'
+    if (blockedMonthsArray.includes(monthKey)) {
+      return NextResponse.json({ error: 'El mes seleccionado no está disponible para reservar turnos por el momento' }, { status: 400 });
     }
 
     // 2. Validar si el día de la semana está bloqueado

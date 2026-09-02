@@ -465,6 +465,7 @@ export default function Landing() {
             <a href="#servicios" className={styles.navLink}>Servicios</a>
             <a href="#galeria" className={styles.navLink}>Trabajos</a>
             <a href="#turnos" className={styles.navLink}>Reservar</a>
+            <a href="/mis-turnos" className={styles.navLink}>Mis Turnos</a>
             {isAdmin && (
               <a href="/admin" className={styles.navAdminLink}>Admin</a>
             )}
