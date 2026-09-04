@@ -473,34 +473,30 @@ export default function Landing() {
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section id="inicio" className="container">
-        <div className={styles.hero}>
-          <div className={styles.heroDecorBlob1} aria-hidden="true"></div>
-          <div className={styles.heroDecorBlob2} aria-hidden="true"></div>
-          <div className={styles.heroContent}>
-            <span className={`${styles.heroSubtitle} ${styles.heroFadeUp}`}>Manicura Profesional</span>
-            <h1 className={`${styles.heroTitle} ${styles.heroFadeUp} ${styles.heroFadeUpDelay1}`}>Resalta la belleza de tus manos</h1>
-            <p className={`${styles.heroDescription} ${styles.heroFadeUp} ${styles.heroFadeUpDelay2}`}>
-              Servicio de manicuría de alta calidad, diseñado para cuidar y embellecer tus uñas con técnicas profesionales y productos premium. ¡Reserva tu turno en minutos!
-            </p>
-            <div className={`${styles.heroButtons} ${styles.heroFadeUp} ${styles.heroFadeUpDelay3}`}>
-              <a href="#turnos" className={styles.heroBtnPink}>
-                Reservar Turno
-              </a>
-              <a href="#servicios" className="btn-secondary">
-                Ver Servicios
-              </a>
-            </div>
-          </div>
-          <div className={styles.heroImageContainer}>
-            <img
-              ref={heroImageRef}
-              src="/images/sami.jpg"
-              alt="Sami trabajando en Las Manitos de Mili"
-              className={styles.heroImage}
-              style={{ objectPosition: 'center 20%' }}
-            />
+      {/* Hero Section: a pantalla completa con la foto de Mili */}
+      <section id="inicio" className={styles.heroSection}>
+        <img
+          ref={heroImageRef}
+          src="/images/mili-hero.jpg"
+          alt="Mili mostrando sus uñas"
+          className={styles.heroBgImage}
+        />
+        <div className={styles.heroDecorBlob1} aria-hidden="true"></div>
+        <div className={styles.heroScrim} aria-hidden="true"></div>
+
+        <div className={styles.heroContent}>
+          <span className={`${styles.heroSubtitle} ${styles.heroFadeUp}`}>Manicura Profesional</span>
+          <h1 className={`${styles.heroTitle} ${styles.heroFadeUp} ${styles.heroFadeUpDelay1}`}>Resalta la belleza de tus manos</h1>
+          <p className={`${styles.heroDescription} ${styles.heroFadeUp} ${styles.heroFadeUpDelay2}`}>
+            Servicio de manicuría de alta calidad, diseñado para cuidar y embellecer tus uñas con técnicas profesionales y productos premium. ¡Reserva tu turno en minutos!
+          </p>
+          <div className={`${styles.heroButtons} ${styles.heroFadeUp} ${styles.heroFadeUpDelay3}`}>
+            <a href="#turnos" className={styles.heroBtnPink}>
+              Reservar Turno
+            </a>
+            <a href="#servicios" className="btn-secondary">
+              Ver Servicios
+            </a>
           </div>
         </div>
 
