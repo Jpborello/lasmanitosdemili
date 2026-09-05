@@ -102,7 +102,7 @@
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: linear-gradient(90deg, var(--bg-primary) 0%, var(--bg-primary) 40%, rgba(253, 250, 246, 0.94) 52%, rgba(253, 250, 246, 0.6) 64%, rgba(253, 250, 246, 0) 78%);
+  background: linear-gradient(90deg, var(--bg-primary) 0%, var(--bg-primary) 28%, rgba(253, 250, 246, 0.85) 38%, rgba(253, 250, 246, 0.4) 50%, rgba(253, 250, 246, 0) 64%);
 }
 
 .heroContent {
@@ -130,6 +130,15 @@
 .heroTitle {
   font-size: 3.5rem;
   line-height: 1.2;
+}
+
+.heroTitleAccent {
+  font-style: italic;
+  background: linear-gradient(135deg, var(--accent-rose-strong), var(--accent-gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--accent-rose-strong);
 }
 
 .heroDescription {
@@ -387,7 +396,7 @@
   }
 
   .heroScrim {
-    background: linear-gradient(180deg, rgba(253, 250, 246, 0) 0%, rgba(253, 250, 246, 0.55) 30%, rgba(253, 250, 246, 0.97) 46%, var(--bg-primary) 60%);
+    background: linear-gradient(180deg, rgba(253, 250, 246, 0) 0%, rgba(253, 250, 246, 0.45) 13%, rgba(253, 250, 246, 0.93) 26%, var(--bg-primary) 52%);
   }
 
   .heroContent {

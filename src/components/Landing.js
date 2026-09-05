@@ -477,8 +477,8 @@ export default function Landing() {
       <section id="inicio" className={styles.heroSection}>
         <img
           ref={heroImageRef}
-          src="/images/mili-hero.jpg"
-          alt="Mili mostrando sus uñas"
+          src="/images/sami-hero.jpg"
+          alt="Manicura profesional mostrando sus uñas"
           className={styles.heroBgImage}
         />
         <div className={styles.heroDecorBlob1} aria-hidden="true"></div>
@@ -486,7 +486,7 @@ export default function Landing() {
 
         <div className={styles.heroContent}>
           <span className={`${styles.heroSubtitle} ${styles.heroFadeUp}`}>Manicura Profesional</span>
-          <h1 className={`${styles.heroTitle} ${styles.heroFadeUp} ${styles.heroFadeUpDelay1}`}>Resalta la belleza de tus manos</h1>
+          <h1 className={`${styles.heroTitle} ${styles.heroFadeUp} ${styles.heroFadeUpDelay1}`}>Resalta la <span className={styles.heroTitleAccent}>belleza</span> de tus manos</h1>
           <p className={`${styles.heroDescription} ${styles.heroFadeUp} ${styles.heroFadeUpDelay2}`}>
             Servicio de manicuría de alta calidad, diseñado para cuidar y embellecer tus uñas con técnicas profesionales y productos premium. ¡Reserva tu turno en minutos!
           </p>
