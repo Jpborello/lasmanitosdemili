@@ -941,3 +941,232 @@
     transform: none;
   }
 }
+
+/* Modal Overlay de Bienvenida */
+.welcomeModalOverlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(44, 37, 35, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.welcomeModalClose {
+  position: absolute;
+  top: 15px;
+  right: 18px;
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.welcomeModalClose:hover {
+  color: var(--text-dark);
+  transform: scale(1.1);
+}
+
+.welcomeExploreBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+  margin-top: 6px;
+  text-align: center;
+  transition: var(--transition-smooth);
+}
+
+.welcomeExploreBtn:hover {
+  color: var(--accent-rose);
+}
+
+/* Sección de Preguntas Frecuentes (FAQ) */
+.faqSection {
+  padding: 100px 0;
+  background-color: var(--bg-secondary);
+}
+
+.faqGrid {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.faqCard {
+  background-color: var(--white);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: var(--transition-smooth);
+}
+
+.faqCard:hover {
+  border-color: var(--accent-gold);
+  box-shadow: var(--shadow-soft);
+}
+
+.faqQuestionBtn {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  gap: 16px;
+}
+
+.faqQuestionText {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  font-family: var(--font-serif);
+}
+
+.faqChevron {
+  color: var(--accent-gold);
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.faqChevronOpen {
+  transform: rotate(180deg);
+}
+
+.faqAnswer {
+  padding: 0 24px 20px 24px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  border-top: 1px solid rgba(197, 168, 128, 0.15);
+  margin-top: 4px;
+  padding-top: 16px;
+}
+
+/* Sección de Ubicación & Estudio */
+.locationSection {
+  padding: 60px 0 100px 0;
+  background-color: var(--bg-primary);
+}
+
+.locationCard {
+  display: grid;
+  grid-template-columns: 1.3fr 0.7fr;
+  gap: 40px;
+  padding: 45px;
+  border-radius: var(--radius-lg);
+  align-items: center;
+}
+
+.locationDesc {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.locationFeatures {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.locationFeatureItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.locationFeatureItem strong {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text-dark);
+  margin-bottom: 2px;
+}
+
+.locationFeatureItem p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.locationIcon {
+  color: var(--accent-gold);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.locationBadgeCard {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(253, 250, 246, 0.9));
+  border: 1px solid var(--accent-gold);
+  padding: 35px 25px;
+  border-radius: var(--radius-md);
+  text-align: center;
+  box-shadow: var(--shadow-soft);
+}
+
+.locationBadgeCity {
+  font-size: 2rem;
+  font-family: var(--font-serif);
+  color: var(--text-dark);
+  letter-spacing: 0.05em;
+}
+
+.locationBadgeState {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--accent-rose);
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.locationBadgeDivider {
+  height: 2px;
+  width: 50px;
+  background-color: var(--accent-gold);
+  margin: 18px auto;
+}
+
+.locationBadgeText {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.locationBadgeRating {
+  color: var(--accent-gold);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.locationBadgeRating span {
+  font-size: 0.85rem;
+  color: var(--text-dark);
+  margin-left: 4px;
+}
+
+@media (max-width: 900px) {
+  .locationCard {
+    grid-template-columns: 1fr;
+    padding: 30px 20px;
+    gap: 30px;
+  }
+}
+

@@ -21,6 +21,30 @@ const GALLERY_IMAGES = [
   { src: '/images/Screenshot 2026-07-21 193838.png', title: 'Decoración Mano Alzada' },
 ];
 
+// Preguntas frecuentes para SEO y orientación de clientas en Rosario
+const FAQ_ITEMS = [
+  {
+    q: '¿Dónde queda el estudio de manicuría en Rosario?',
+    a: 'El estudio de Las Manitos de Mili se encuentra en Rosario, Santa Fe. Atendemos con turno previo reservado desde la web o coordinado por WhatsApp para asegurarte exclusividad, puntualidad y un ambiente relajante sin esperas.',
+  },
+  {
+    q: '¿Qué diferencia hay entre Kapping Poligel, Soft Gel y Uñas Esculpidas?',
+    a: 'El Kapping Poligel refuerza tu uña natural para evitar quiebres y permitir que crezca sana sin alargarla. El Soft Gel añade extensión mediante tips de gel preformados ligeros y rápidos de colocar. Las Uñas Esculpidas se construyen artesanalmente sobre molde para lograr el largo y la forma personalizada que desees.',
+  },
+  {
+    q: '¿Cuánto tiempo dura el esmaltado semipermanente?',
+    a: 'El esmaltado semipermanente dura entre 15 y 21 días impecable con brillo intacto, dependiendo del crecimiento natural de tu uña y los cuidados cotidianos.',
+  },
+  {
+    q: '¿Cómo reservo mi turno de manicura en Rosario?',
+    a: 'Es muy fácil: elegís la fecha y horario disponible en nuestro calendario de reservas online, completás tus datos y confirmás en el acto. Si tenés dudas, también podés escribirnos directo por WhatsApp.',
+  },
+  {
+    q: '¿Realizan servicios de pedicuría y spa de pies en Rosario?',
+    a: '¡Sí! Contamos con esmaltado semipermanente en pies y tratamiento de pedicuría completa que incluye remoción profunda de asperezas, durezas y callosidades, exfoliación e hidratación intensiva.',
+  },
+];
+
 export default function Landing() {
   const {
     clientName,
@@ -42,6 +66,26 @@ export default function Landing() {
   const [servicesList, setServicesList] = useState([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const selectedImage = selectedImageIndex !== null ? GALLERY_IMAGES[selectedImageIndex] : null;
+
+  // Modal de bienvenida no bloqueante y FAQ acordeón
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [openFaq, setOpenFaq] = useState(0);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !isRegistered) {
+      const dismissed = sessionStorage.getItem('mili_welcome_dismissed');
+      if (!dismissed) {
+        setShowWelcomeModal(true);
+      }
+    }
+  }, [isRegistered]);
+
+  const handleCloseWelcomeModal = () => {
+    setShowWelcomeModal(false);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('mili_welcome_dismissed', 'true');
+    }
+  };
 
   // Mercado Pago feedback parameters checking
   const [paymentStatus, setPaymentStatus] = useState(null);
@@ -286,29 +330,33 @@ export default function Landing() {
     }
   };
 
-  if (!isRegistered) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)', padding: '20px' }} className="animate-fade-in">
-        {/* Simple Header */}
-        <header className={styles.header} style={{ borderBottom: 'none', marginBottom: '20px' }}>
-          <div className="container" style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-            <div className={styles.logoContainer}>
-              <img src="/logo.jpg" alt="Las Manitos de Mili" className={styles.logoImg} />
-            </div>
-          </div>
-        </header>
+  return (
+    <div className="animate-fade-in">
+      {/* Modal de Bienvenida flotante no bloqueante para clientas nuevas */}
+      {!isRegistered && showWelcomeModal && (
+        <div className={styles.welcomeModalOverlay} onClick={handleCloseWelcomeModal}>
+          <div
+            className={`${styles.welcomeCard} glass-card-gold animate-scale-in`}
+            style={{ position: 'relative', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className={styles.welcomeModalClose}
+              onClick={handleCloseWelcomeModal}
+              aria-label="Cerrar ventana"
+            >
+              ×
+            </button>
 
-        {/* Center welcome card */}
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px 0' }}>
-          <div className={`${styles.welcomeCard} glass-card-gold animate-scale-in`} style={{ boxShadow: 'var(--shadow-soft)', position: 'relative' }}>
-            <div className={styles.welcomeSubtitle}>Las Manitos de Mili</div>
+            <div className={styles.welcomeSubtitle}>Las Manitos de Mili • Rosario</div>
             <h2 className={styles.welcomeTitle}>
               ¡Te damos la <span>Bienvenida</span>!
             </h2>
             <p className={styles.welcomeDesc}>
-              Completa tus datos por única vez para participar en nuestros sorteos de fin de año y agendar tus turnos con un solo clic.
+              Completa tus datos para participar en sorteos y reservar tus turnos en Rosario con un solo clic.
             </p>
-            
+
             <form className={styles.welcomeForm} onSubmit={handleRegisterSubmit}>
               <div className={styles.formGroupRow}>
                 <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)' }}>Teléfono Celular *</label>
@@ -380,20 +428,24 @@ export default function Landing() {
               >
                 {regSubmitting ? 'Registrando...' : showPassword ? 'Iniciar Sesión Admin' : 'Registrarme e Ingresar'}
               </button>
+
+              <button
+                type="button"
+                className={styles.welcomeExploreBtn}
+                onClick={handleCloseWelcomeModal}
+              >
+                Explorar servicios y diseños primero ↓
+              </button>
             </form>
           </div>
         </div>
-      </div>
-    );
-  }
+      )}
 
-  return (
-    <div className="animate-fade-in">
       {paymentStatus && (
         <div className={styles.lightboxOverlay} style={{ zIndex: 9999 }}>
           <div className="glass-card-gold animate-scale-in" style={{ maxWidth: '450px', width: '90%', padding: '30px', textAlign: 'center', backgroundColor: 'var(--white)', position: 'relative' }}>
             <button 
-              type="button"
+              type="button" 
               className={styles.lightboxClose} 
               onClick={() => setPaymentStatus(null)}
               style={{ fontSize: '1.5rem', top: '10px', right: '15px' }}
@@ -457,13 +509,15 @@ export default function Landing() {
       <header className={`${styles.header} ${isHeaderScrolled ? styles.headerScrolled : ''}`}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <div className={styles.logoContainer}>
-            <img src="/logo.jpg" alt="Las Manitos de Mili" className={styles.logoImg} />
+            <img src="/logo.jpg" alt="Las Manitos de Mili - Manicuría Rosario" className={styles.logoImg} />
           </div>
           <nav className={styles.nav}>
             <a href="#inicio" className={styles.navLink}>Inicio</a>
             <a href="#sobre-mi" className={styles.navLink}>Sobre Mí</a>
             <a href="#servicios" className={styles.navLink}>Servicios</a>
             <a href="#galeria" className={styles.navLink}>Trabajos</a>
+            <a href="#faq" className={styles.navLink}>Preguntas</a>
+            <a href="#ubicacion" className={styles.navLink}>Estudio</a>
             <a href="#turnos" className={styles.navLink}>Reservar</a>
             <a href="/mis-turnos" className={styles.navLink}>Mis Turnos</a>
             {isAdmin && (
@@ -478,17 +532,19 @@ export default function Landing() {
         <img
           ref={heroImageRef}
           src="/images/sami-hero.jpg"
-          alt="Manicura profesional mostrando sus uñas"
+          alt="Manicura profesional en Rosario mostrando diseño de uñas"
           className={styles.heroBgImage}
         />
         <div className={styles.heroDecorBlob1} aria-hidden="true"></div>
         <div className={styles.heroScrim} aria-hidden="true"></div>
 
         <div className={styles.heroContent}>
-          <span className={`${styles.heroSubtitle} ${styles.heroFadeUp}`}>Manicura Profesional</span>
-          <h1 className={`${styles.heroTitle} ${styles.heroFadeUp} ${styles.heroFadeUpDelay1}`}>Resalta la <span className={styles.heroTitleAccent}>belleza</span> de tus manos</h1>
+          <span className={`${styles.heroSubtitle} ${styles.heroFadeUp}`}>Manicuría Profesional en Rosario</span>
+          <h1 className={`${styles.heroTitle} ${styles.heroFadeUp} ${styles.heroFadeUpDelay1}`}>
+            Uñas & Manicuría en Rosario • Resalta la <span className={styles.heroTitleAccent}>belleza</span> de tus manos
+          </h1>
           <p className={`${styles.heroDescription} ${styles.heroFadeUp} ${styles.heroFadeUpDelay2}`}>
-            Servicio de manicuría de alta calidad, diseñado para cuidar y embellecer tus uñas con técnicas profesionales y productos premium. ¡Reserva tu turno en minutos!
+            Estudio de manicuría y estética de uñas en Rosario. Kapping Poligel, Soft Gel, Uñas Esculpidas, Semipermanente y Pedicuría con productos importados y atención personalizada. ¡Reserva tu turno en minutos!
           </p>
           <div className={`${styles.heroButtons} ${styles.heroFadeUp} ${styles.heroFadeUpDelay3}`}>
             <a href="#turnos" className={styles.heroBtnPink}>
@@ -561,9 +617,9 @@ export default function Landing() {
       <section id="servicios" className={styles.servicesSection}>
         <div className="container">
           <Reveal as="div" className={styles.sectionHeader}>
-            <span className={styles.sectionSubtitle}>¿Qué ofrecemos?</span>
-            <h2 className={styles.sectionTitle}>Nuestros Servicios Premium</h2>
-            <p style={{ color: 'var(--text-muted)' }}>Utilizamos productos de primera línea para garantizar la durabilidad y salud de tus uñas y pies.</p>
+            <span className={styles.sectionSubtitle}>Estudio de uñas en Rosario</span>
+            <h2 className={styles.sectionTitle}>Nuestros Servicios Premium en Rosario</h2>
+            <p style={{ color: 'var(--text-muted)' }}>Utilizamos productos de primera línea para garantizar la máxima durabilidad y salud de tus uñas y pies en Rosario, Santa Fe.</p>
           </Reveal>
 
           {/* Categoría: Manicuría */}
@@ -828,6 +884,113 @@ export default function Landing() {
               </div>
             )}
           </div>
+        </div>
+      </section>
+
+      {/* Sección de Preguntas Frecuentes (FAQ - SEO y Experiencia de Usuario) */}
+      <section id="faq" className={styles.faqSection}>
+        <div className="container">
+          <Reveal as="div" className={styles.sectionHeader}>
+            <span className={styles.sectionSubtitle}>Dudas habituales</span>
+            <h2 className={styles.sectionTitle}>Preguntas Frecuentes sobre Manicuría en Rosario</h2>
+            <p style={{ color: 'var(--text-muted)' }}>
+              Todo lo que necesitas saber antes de tu cita en Las Manitos de Mili.
+            </p>
+          </Reveal>
+
+          <div className={styles.faqGrid}>
+            {FAQ_ITEMS.map((item, idx) => (
+              <Reveal as="div" key={idx} delay={Math.min(idx, 4) * 80} className={`${styles.faqCard} glass-card`}>
+                <button
+                  type="button"
+                  className={styles.faqQuestionBtn}
+                  onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                  aria-expanded={openFaq === idx}
+                >
+                  <span className={styles.faqQuestionText}>{item.q}</span>
+                  <ChevronDown
+                    size={20}
+                    className={`${styles.faqChevron} ${openFaq === idx ? styles.faqChevronOpen : ''}`}
+                  />
+                </button>
+                {openFaq === idx && (
+                  <div className={`${styles.faqAnswer} animate-fade-in`}>
+                    <p>{item.a}</p>
+                  </div>
+                )}
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Sección de Ubicación & Estudio en Rosario */}
+      <section id="ubicacion" className={styles.locationSection}>
+        <div className="container">
+          <Reveal as="div" className={`${styles.locationCard} glass-card-gold`}>
+            <div className={styles.locationInfo}>
+              <span className={styles.sectionSubtitle}>Visítanos</span>
+              <h2 className={styles.sectionTitle} style={{ textAlign: 'left', marginBottom: '15px' }}>
+                Estudio Las Manitos de Mili en Rosario
+              </h2>
+              <p className={styles.locationDesc}>
+                Un espacio cálido y climatizado pensado para tu confort y desconexión en <strong>Rosario, Santa Fe</strong>. Trabajamos exclusivamente con turnos reservados para darte atención personalizada y cumplir con los más altos estándares de higiene y esterilización.
+              </p>
+
+              <div className={styles.locationFeatures}>
+                <div className={styles.locationFeatureItem}>
+                  <MapPin size={20} className={styles.locationIcon} />
+                  <div>
+                    <strong>Ciudad y Cobertura</strong>
+                    <p>Rosario, Santa Fe, Argentina</p>
+                  </div>
+                </div>
+
+                <div className={styles.locationFeatureItem}>
+                  <Clock size={20} className={styles.locationIcon} />
+                  <div>
+                    <strong>Horarios de Atención</strong>
+                    <p>Lunes a Sábados de 09:00 a 20:00 hs (con turno previo)</p>
+                  </div>
+                </div>
+
+                <div className={styles.locationFeatureItem}>
+                  <Sparkles size={20} className={styles.locationIcon} />
+                  <div>
+                    <strong>Atención Personalizada 1 a 1</strong>
+                    <p>Puntualidad garantizada, sin demoras ni esperas en el salón</p>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '25px', display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                <a href="#turnos" className="btn-primary">
+                  Reservar Turno Ahora
+                </a>
+                <a
+                  href={`https://wa.me/${MILI_WHATSAPP_NUMBER}?text=${encodeURIComponent('¡Hola Sami! Quería consultar por un turno de manicuría en Rosario 💅')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-secondary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <MessageCircle size={16} /> Consultar por WhatsApp
+                </a>
+              </div>
+            </div>
+
+            <div className={styles.locationBadgeCard}>
+              <div className={styles.locationBadgeCity}>Rosario</div>
+              <div className={styles.locationBadgeState}>Santa Fe · Argentina</div>
+              <div className={styles.locationBadgeDivider}></div>
+              <p className={styles.locationBadgeText}>
+                Especialista en Uñas Esculpidas, Kapping Poligel, Soft Gel, Semipermanente y Pedicuría.
+              </p>
+              <div className={styles.locationBadgeRating}>
+                ★★★★★ <span>{stats?.avgRating ? `${stats.avgRating} / 5` : '5.0 / 5'}</span>
+              </div>
+            </div>
+          </Reveal>
         </div>
       </section>
 
