@@ -900,7 +900,7 @@ export default function Landing() {
 
           <div className={styles.faqGrid}>
             {FAQ_ITEMS.map((item, idx) => (
-              <Reveal as="div" key={idx} delay={Math.min(idx, 4) * 80} className={`${styles.faqCard} glass-card`}>
+              <Reveal as="div" key={idx} delay={Math.min(idx, 4) * 80} className={`${styles.faqCard} ${openFaq === idx ? styles.faqCardActive : ''} glass-card`}>
                 <button
                   type="button"
                   className={styles.faqQuestionBtn}
