@@ -41,7 +41,7 @@ export const metadata = {
     "mili nails rosario",
     "salon de uñas rosario"
   ],
-  authors: [{ name: "Sami (Las Manitos de Mili)" }],
+  authors: [{ name: "Mili (Las Manitos de Mili)" }],
   creator: "neo core sys",
   alternates: {
     canonical: "/",

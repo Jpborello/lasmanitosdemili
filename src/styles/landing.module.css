@@ -942,54 +942,7 @@
   }
 }
 
-/* Modal Overlay de Bienvenida */
-.welcomeModalOverlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(44, 37, 35, 0.65);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  animation: fadeIn 0.3s ease;
-}
 
-.welcomeModalClose {
-  position: absolute;
-  top: 15px;
-  right: 18px;
-  background: none;
-  border: none;
-  font-size: 1.8rem;
-  line-height: 1;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: var(--transition-smooth);
-}
-
-.welcomeModalClose:hover {
-  color: var(--text-dark);
-  transform: scale(1.1);
-}
-
-.welcomeExploreBtn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  text-decoration: underline;
-  cursor: pointer;
-  margin-top: 6px;
-  text-align: center;
-  transition: var(--transition-smooth);
-}
-
-.welcomeExploreBtn:hover {
-  color: var(--accent-rose);
-}
 
 /* Sección de Preguntas Frecuentes (FAQ) */
 .faqSection {

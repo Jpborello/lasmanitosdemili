@@ -5,12 +5,9 @@ import { Sparkles, Clock, MapPin, ShieldCheck, Heart, ChevronDown, ChevronLeft, 
 import styles from '@/styles/landing.module.css';
 import BookingCalendar from './BookingCalendar';
 import Reveal from './Reveal';
-import { useClientSession } from '@/hooks/useClientSession';
+import { DEFAULT_SERVICES, YEARS_OF_EXPERIENCE, MILI_WHATSAPP_NUMBER, TURNOS_ATENDIDOS_BASE_OFFSET } from '@/lib/constants';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { useCountUp } from '@/hooks/useCountUp';
-import { YEARS_OF_EXPERIENCE, MILI_WHATSAPP_NUMBER, TURNOS_ATENDIDOS_BASE_OFFSET } from '@/lib/constants';
-
-// Galería de trabajos reales del estudio
 const GALLERY_IMAGES = [
   { src: '/images/Screenshot 2026-07-21 193733.png', title: 'Diseño Soft Pink' },
   { src: '/images/Screenshot 2026-07-21 193745.png', title: 'Francesitas Delicadas' },
@@ -46,14 +43,6 @@ const FAQ_ITEMS = [
 ];
 
 export default function Landing() {
-  const {
-    clientName,
-    clientPhone,
-    clientEmail,
-    isRegistered,
-    saveSession,
-  } = useClientSession();
-
   const [reviews, setReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -67,25 +56,21 @@ export default function Landing() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const selectedImage = selectedImageIndex !== null ? GALLERY_IMAGES[selectedImageIndex] : null;
 
-  // Modal de bienvenida no bloqueante y FAQ acordeón
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  // FAQ acordeón
   const [openFaq, setOpenFaq] = useState(0);
 
+  // Estado de Administradora para mostrar botón en navbar si está autenticada
+  const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
-    if (typeof window !== 'undefined' && !isRegistered) {
-      const dismissed = sessionStorage.getItem('mili_welcome_dismissed');
-      if (!dismissed) {
-        setShowWelcomeModal(true);
-      }
-    }
-  }, [isRegistered]);
-
-  const handleCloseWelcomeModal = () => {
-    setShowWelcomeModal(false);
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('mili_welcome_dismissed', 'true');
-    }
-  };
+    fetch('/api/admin/login')
+      .then(res => res.json())
+      .then(data => {
+        if (data.authenticated) {
+          setIsAdmin(true);
+        }
+      })
+      .catch(err => console.error('Error checking admin status:', err));
+  }, []);
 
   // Mercado Pago feedback parameters checking
   const [paymentStatus, setPaymentStatus] = useState(null);
@@ -159,95 +144,7 @@ export default function Landing() {
     }
   }, []);
 
-  // Estados del Overlay de Registro/Bienvenida
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [regName, setRegName] = useState('');
-  const [regPhone, setRegPhone] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPassword, setRegPassword] = useState('');
-  const [regError, setRegError] = useState('');
-  const [regSubmitting, setRegSubmitting] = useState(false);
 
-  const showPassword = regPhone.replace(/\D/g, '') === '3413022674';
-
-  // Comprobar si es admin en el servidor
-  useEffect(() => {
-    fetch('/api/admin/login')
-      .then(res => res.json())
-      .then(data => {
-        if (data.authenticated) {
-          setIsAdmin(true);
-        }
-      })
-      .catch(err => console.error('Error checking admin status:', err));
-  }, []);
-
-  const handleRegisterSubmit = async (e) => {
-    e.preventDefault();
-    if (!regName || !regPhone) {
-      setRegError('Por favor completa los campos obligatorios.');
-      return;
-    }
-
-    setRegSubmitting(true);
-    setRegError('');
-
-    try {
-      const cleanPhone = regPhone.replace(/\D/g, '');
-      let finalName = regName;
-      let finalEmail = regEmail;
-      
-      // Si es Mili (administradora)
-      if (cleanPhone === '3413022674') {
-        if (!regPassword) {
-          setRegError('Por favor ingresa la contraseña de administradora.');
-          setRegSubmitting(false);
-          return;
-        }
-
-        const res = await fetch('/api/admin/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: regPassword }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || 'Contraseña incorrecta');
-        }
-
-        setIsAdmin(true);
-      } else {
-        // Registrar a la clienta en la base de datos
-        const res = await fetch('/api/clients', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: finalName,
-            phone: regPhone,
-            email: finalEmail || null,
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || 'Error al registrar tus datos en el servidor');
-        }
-      }
-
-      // Guardar datos usando el custom hook
-      saveSession(finalName, regPhone, finalEmail || '');
-
-      // Forzar recarga para que BookingCalendar tome la sesión
-      if (typeof window !== 'undefined') {
-        window.location.reload();
-      }
-    } catch (err) {
-      setRegError(err.message);
-    } finally {
-      setRegSubmitting(false);
-    }
-  };
 
   useEffect(() => {
     fetch('/api/reviews')
@@ -332,114 +229,6 @@ export default function Landing() {
 
   return (
     <div className="animate-fade-in">
-      {/* Modal de Bienvenida flotante no bloqueante para clientas nuevas */}
-      {!isRegistered && showWelcomeModal && (
-        <div className={styles.welcomeModalOverlay} onClick={handleCloseWelcomeModal}>
-          <div
-            className={`${styles.welcomeCard} glass-card-gold animate-scale-in`}
-            style={{ position: 'relative', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              className={styles.welcomeModalClose}
-              onClick={handleCloseWelcomeModal}
-              aria-label="Cerrar ventana"
-            >
-              ×
-            </button>
-
-            <div className={styles.welcomeSubtitle}>Las Manitos de Mili • Rosario</div>
-            <h2 className={styles.welcomeTitle}>
-              ¡Te damos la <span>Bienvenida</span>!
-            </h2>
-            <p className={styles.welcomeDesc}>
-              Completa tus datos para participar en sorteos y reservar tus turnos en Rosario con un solo clic.
-            </p>
-
-            <form className={styles.welcomeForm} onSubmit={handleRegisterSubmit}>
-              <div className={styles.formGroupRow}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)' }}>Teléfono Celular *</label>
-                <input
-                  type="tel"
-                  placeholder="Ej. 11 2345 6789"
-                  required
-                  className={styles.welcomeInput}
-                  value={regPhone}
-                  onChange={(e) => setRegPhone(e.target.value)}
-                  disabled={regSubmitting}
-                />
-              </div>
-
-              <div className={styles.formGroupRow}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)' }}>Nombre Completo *</label>
-                <input
-                  type="text"
-                  placeholder="Ej. María Gómez"
-                  required
-                  className={styles.welcomeInput}
-                  value={regName}
-                  onChange={(e) => setRegName(e.target.value)}
-                  disabled={regSubmitting}
-                />
-              </div>
-
-              <div className={styles.formGroupRow}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)' }}>Email (Opcional)</label>
-                <input
-                  type="email"
-                  placeholder="ejemplo@correo.com"
-                  className={styles.welcomeInput}
-                  value={regEmail}
-                  onChange={(e) => setRegEmail(e.target.value)}
-                  disabled={regSubmitting}
-                />
-              </div>
-
-              {showPassword && (
-                <div className={`${styles.formGroupRow} animate-fade-in`}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-gold)' }}>
-                    Contraseña de Administradora *
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="Contraseña de administrador"
-                    required
-                    className={styles.welcomeInput}
-                    value={regPassword}
-                    onChange={(e) => setRegPassword(e.target.value)}
-                    disabled={regSubmitting}
-                    style={{ borderColor: 'var(--accent-gold)' }}
-                  />
-                </div>
-              )}
-
-              {regError && (
-                <p style={{ color: 'var(--error)', fontSize: '0.85rem', fontWeight: 600, margin: '5px 0' }}>
-                  {regError}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={regSubmitting}
-                style={{ width: '100%', marginTop: '10px', padding: '14px', borderRadius: '30px' }}
-              >
-                {regSubmitting ? 'Registrando...' : showPassword ? 'Iniciar Sesión Admin' : 'Registrarme e Ingresar'}
-              </button>
-
-              <button
-                type="button"
-                className={styles.welcomeExploreBtn}
-                onClick={handleCloseWelcomeModal}
-              >
-                Explorar servicios y diseños primero ↓
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
 
       {paymentStatus && (
         <div className={styles.lightboxOverlay} style={{ zIndex: 9999 }}>
@@ -598,9 +387,9 @@ export default function Landing() {
             </Reveal>
             <Reveal as="div" delay={150} className={styles.aboutContent}>
               <span className={styles.sectionSubtitle}>Conóceme</span>
-              <h2 className={styles.sectionTitle}>Sami • Especialista en Uñas</h2>
+              <h2 className={styles.sectionTitle}>Mili • Especialista en Uñas</h2>
               <p className={styles.aboutText}>
-                ¡Hola! Soy Sami. Desde hace años me dedico con alma y vida a mi gran pasión: ser manicura profesional.
+                ¡Hola! Soy Mili. Desde hace años me dedico con alma y vida a mi gran pasión: ser manicura profesional.
               </p>
               <p className={styles.aboutText}>
                 Para mí, cada mano es única. La considero un lienzo en blanco donde puedo proyectar mis inspiraciones y creatividad, combinando técnicas precisas con productos de la más alta calidad.
@@ -968,7 +757,7 @@ export default function Landing() {
                   Reservar Turno Ahora
                 </a>
                 <a
-                  href={`https://wa.me/${MILI_WHATSAPP_NUMBER}?text=${encodeURIComponent('¡Hola Sami! Quería consultar por un turno de manicuría en Rosario 💅')}`}
+                  href={`https://wa.me/${MILI_WHATSAPP_NUMBER}?text=${encodeURIComponent('¡Hola Mili! Quería consultar por un turno de manicuría en Rosario 💅')}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-secondary"
