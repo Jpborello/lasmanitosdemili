@@ -39,7 +39,10 @@ export async function GET() {
   }
 }
 
-// PATCH: Cambiar manualmente el estado de confianza de una clienta (confiable / restringida / bloqueada)
+// PATCH: Editar los datos de una clienta (nombre, teléfono, email) y/o su estado de
+// confianza (confiable / restringida / bloqueada). El teléfono es la clave primaria de
+// la clienta, así que si se cambia (new_phone) hay que migrar también sus turnos para
+// que no pierda su historial.
 export async function PATCH(request) {
   try {
     const cookieStore = await cookies();
@@ -50,28 +53,94 @@ export async function PATCH(request) {
     }
 
     const body = await request.json();
-    const { phone, trust_status } = body;
+    const { phone, trust_status, name, email, new_phone } = body;
 
-    const allowedStatuses = ['trusted', 'restricted', 'blocked'];
-    if (!phone || !allowedStatuses.includes(trust_status)) {
-      return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 });
+    if (!phone) {
+      return NextResponse.json({ error: 'Falta el teléfono de la clienta a modificar' }, { status: 400 });
     }
 
     const cleanPhone = normalizePhone(phone);
     const db = await getDb();
 
-    const result = await db.execute({
-      sql: 'UPDATE clients SET trust_status = ? WHERE phone = ?',
-      args: [trust_status, cleanPhone],
+    const existing = await db.execute({
+      sql: 'SELECT phone FROM clients WHERE phone = ?',
+      args: [cleanPhone],
     });
 
-    if (result.rowsAffected === 0) {
+    if (existing.rows.length === 0) {
       return NextResponse.json({ error: 'Clienta no encontrada' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, trust_status });
+    // Cambiar el estado de confianza (uso ya existente: switch de confiable/restringida y botón de bloqueo)
+    if (trust_status !== undefined) {
+      const allowedStatuses = ['trusted', 'restricted', 'blocked'];
+      if (!allowedStatuses.includes(trust_status)) {
+        return NextResponse.json({ error: 'Estado de confianza inválido' }, { status: 400 });
+      }
+      await db.execute({
+        sql: 'UPDATE clients SET trust_status = ? WHERE phone = ?',
+        args: [trust_status, cleanPhone],
+      });
+    }
+
+    // Editar nombre y/o email
+    if (name !== undefined || email !== undefined) {
+      const fields = [];
+      const args = [];
+
+      if (name !== undefined) {
+        if (!name.trim()) {
+          return NextResponse.json({ error: 'El nombre no puede estar vacío' }, { status: 400 });
+        }
+        fields.push('name = ?');
+        args.push(name.trim());
+      }
+
+      if (email !== undefined) {
+        fields.push('email = ?');
+        args.push(email.trim() ? email.trim() : null);
+      }
+
+      args.push(cleanPhone);
+      await db.execute({
+        sql: `UPDATE clients SET ${fields.join(', ')} WHERE phone = ?`,
+        args,
+      });
+    }
+
+    // Corregir el teléfono: al ser la clave primaria de la clienta, hay que migrar
+    // también sus turnos existentes para que sigan asociados a la persona correcta.
+    if (new_phone !== undefined) {
+      const cleanNewPhone = normalizePhone(new_phone);
+
+      if (!cleanNewPhone || cleanNewPhone.length < 8) {
+        return NextResponse.json({ error: 'El nuevo teléfono no es válido' }, { status: 400 });
+      }
+
+      if (cleanNewPhone !== cleanPhone) {
+        const conflict = await db.execute({
+          sql: 'SELECT phone FROM clients WHERE phone = ?',
+          args: [cleanNewPhone],
+        });
+
+        if (conflict.rows.length > 0) {
+          return NextResponse.json({ error: 'Ya existe otra clienta registrada con ese teléfono' }, { status: 409 });
+        }
+
+        await db.execute({
+          sql: 'UPDATE clients SET phone = ? WHERE phone = ?',
+          args: [cleanNewPhone, cleanPhone],
+        });
+        await db.execute({
+          sql: 'UPDATE appointments SET client_phone = ? WHERE client_phone = ?',
+          args: [cleanNewPhone, cleanPhone],
+        });
+      }
+    }
+
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error in admin clients PATCH:', error);
-    return NextResponse.json({ error: 'Error al actualizar el estado de la clienta' }, { status: 500 });
+    return NextResponse.json({ error: 'Error al actualizar la clienta' }, { status: 500 });
   }
 }

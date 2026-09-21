@@ -798,6 +798,30 @@ export default function AdminDashboard() {
     }
   };
 
+  // 11c. Editar los datos de una clienta (nombre, teléfono y/o email) desde el panel
+  const handleEditClient = async (originalPhone, updates) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/clients', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: originalPhone, ...updates }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        await fetchClients();
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'No se pudo actualizar la clienta.' };
+    } catch (err) {
+      console.error(err);
+      return { success: false, error: 'Error de conexión.' };
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // 11. Cerrar sesión
   const handleLogout = async () => {
     try {
@@ -941,6 +965,7 @@ export default function AdminDashboard() {
           fetchClients={fetchClients}
           actionLoading={actionLoading}
           onSetTrustStatus={handleSetClientTrustStatus}
+          onEditClient={handleEditClient}
         />
       )}
     </div>

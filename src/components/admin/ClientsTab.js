@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { RefreshCw, Search, Users, Phone, Mail, Calendar, DollarSign, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
+import { RefreshCw, Search, Users, Phone, Mail, Calendar, DollarSign, ShieldCheck, ShieldAlert, ShieldX, Pencil, X } from 'lucide-react';
 import styles from '@/styles/admin.module.css';
 
 const TRUST_LABELS = {
@@ -16,9 +16,61 @@ export default function ClientsTab({
   fetchClients,
   actionLoading,
   onSetTrustStatus,
+  onEditClient,
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name'); // 'name', 'visits', 'spent'
+  const [editingClient, setEditingClient] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', phone: '', email: '' });
+  const [editError, setEditError] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const openEditModal = (client) => {
+    setEditingClient(client);
+    setEditForm({
+      name: client.client_name || '',
+      phone: client.client_phone || '',
+      email: client.client_email || '',
+    });
+    setEditError('');
+  };
+
+  const closeEditModal = () => {
+    setEditingClient(null);
+    setEditError('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingClient) return;
+
+    if (!editForm.name.trim()) {
+      setEditError('El nombre no puede estar vacío.');
+      return;
+    }
+
+    const cleanPhone = editForm.phone.replace(/\D/g, '').replace(/^0+/, '');
+    if (!cleanPhone || cleanPhone.length < 8) {
+      setEditError('Ingresá un teléfono válido.');
+      return;
+    }
+
+    setSavingEdit(true);
+    setEditError('');
+
+    const result = await onEditClient(editingClient.client_phone, {
+      name: editForm.name,
+      email: editForm.email,
+      new_phone: cleanPhone,
+    });
+
+    setSavingEdit(false);
+
+    if (result?.success) {
+      closeEditModal();
+    } else {
+      setEditError(result?.error || 'No se pudo guardar los cambios.');
+    }
+  };
 
   const getSimpleWhatsAppLink = (phone, name) => {
     const cleanedPhone = phone.replace(/\D/g, '');
@@ -68,6 +120,7 @@ export default function ClientsTab({
   });
 
   return (
+    <>
     <div className="glass-card-gold animate-fade-in" style={{ padding: '30px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
         <div>
@@ -227,6 +280,17 @@ export default function ClientsTab({
                           <Phone size={16} />
                         </a>
 
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(client)}
+                          disabled={actionLoading}
+                          className={styles.contactLink}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', justifyContent: 'center', padding: 0 }}
+                          title="Editar nombre, teléfono o email"
+                        >
+                          <Pencil size={16} />
+                        </button>
+
                         {trustStatus !== 'blocked' && (
                           <label
                             className={styles.switch}
@@ -270,5 +334,110 @@ export default function ClientsTab({
         </div>
       )}
     </div>
+
+    {editingClient && (
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(44, 34, 32, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px',
+        }}
+        onClick={closeEditModal}
+      >
+        <div
+          className="glass-card-gold animate-fade-in"
+          style={{ padding: '30px', width: '100%', maxWidth: '420px', position: 'relative' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={closeEditModal}
+            style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+            title="Cerrar"
+          >
+            <X size={20} />
+          </button>
+
+          <h3 className={styles.sectionTitle} style={{ borderBottom: 'none', paddingBottom: 0, marginBottom: '20px', fontSize: '1.3rem' }}>
+            Editar Clienta
+          </h3>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <div>
+              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '5px' }}>
+                Nombre
+              </label>
+              <input
+                type="text"
+                className="input"
+                style={{ width: '100%' }}
+                value={editForm.name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                disabled={savingEdit}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '5px' }}>
+                Teléfono
+              </label>
+              <input
+                type="text"
+                className="input"
+                style={{ width: '100%' }}
+                value={editForm.phone}
+                onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                disabled={savingEdit}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '5px' }}>
+                Email (opcional)
+              </label>
+              <input
+                type="email"
+                className="input"
+                style={{ width: '100%' }}
+                value={editForm.email}
+                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                disabled={savingEdit}
+              />
+            </div>
+
+            {editError && (
+              <p style={{ color: 'var(--error)', fontSize: '0.85rem', margin: 0 }}>{editError}</p>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ flex: 1 }}
+                onClick={closeEditModal}
+                disabled={savingEdit}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ flex: 1 }}
+                onClick={handleSaveEdit}
+                disabled={savingEdit}
+              >
+                {savingEdit ? 'Guardando...' : 'Guardar Cambios'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
