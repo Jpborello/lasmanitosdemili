@@ -18,7 +18,7 @@ export function useScrollReveal({ threshold = 0.15, rootMargin = '0px 0px -80px 
 
     // Si el navegador no soporta IntersectionObserver, mostrar directamente
     if (typeof IntersectionObserver === 'undefined') {
-      setIsVisible(true);
+      requestAnimationFrame(() => setIsVisible(true));
       return;
     }
 

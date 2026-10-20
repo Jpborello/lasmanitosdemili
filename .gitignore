@@ -43,3 +43,6 @@ next-env.d.ts
 # local database files
 *.db
 local.db
+
+# temp scripts and stale locks
+/_to_delete

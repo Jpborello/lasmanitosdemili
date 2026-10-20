@@ -17,7 +17,7 @@ export function useCountUp(target, { start = false, duration = 1400 } = {}) {
 
     const numericTarget = Number(target) || 0;
     if (numericTarget <= 0) {
-      setValue(numericTarget);
+      requestAnimationFrame(() => setValue(numericTarget));
       return;
     }
 

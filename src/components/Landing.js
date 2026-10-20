@@ -566,7 +566,7 @@ export default function Landing() {
             ) : (
               reviews.map((rev, idx) => (
                 <Reveal as="div" key={rev.id} delay={Math.min(idx, 6) * 90} className={`${styles.testimonialCard} glass-card`}>
-                  <span className={styles.quoteIcon}>"</span>
+                  <span className={styles.quoteIcon}>&ldquo;</span>
                   <p className={styles.testimonialText}>{rev.comment}</p>
                   <div className={styles.testimonialAuthor}>— {rev.client_name}</div>
                   <div className={styles.stars}>
