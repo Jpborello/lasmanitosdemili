@@ -46,6 +46,13 @@ export default function manifest() {
         url: '/mis-turnos',
         icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192' }],
       },
+      {
+        name: 'Panel de Administración',
+        short_name: 'Admin',
+        description: 'Acceso para Mili al panel de gestión',
+        url: '/admin',
+        icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192' }],
+      },
     ],
   };
 }

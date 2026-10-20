@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, Clock, MapPin, ShieldCheck, Heart, ChevronDown, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
+import { Sparkles, Clock, MapPin, ShieldCheck, Heart, ChevronDown, ChevronLeft, ChevronRight, MessageCircle, Lock } from 'lucide-react';
 import styles from '@/styles/landing.module.css';
 import BookingCalendar from './BookingCalendar';
 import Reveal from './Reveal';
@@ -71,6 +71,22 @@ export default function Landing() {
       })
       .catch(err => console.error('Error checking admin status:', err));
   }, []);
+
+  // Triple toque en el logo para acceso secreto de Sami/Mili
+  const logoClicksRef = useRef(0);
+  const logoTimerRef = useRef(null);
+  const handleLogoClick = () => {
+    logoClicksRef.current += 1;
+    if (logoTimerRef.current) clearTimeout(logoTimerRef.current);
+    if (logoClicksRef.current >= 3) {
+      logoClicksRef.current = 0;
+      window.location.href = '/admin';
+    } else {
+      logoTimerRef.current = setTimeout(() => {
+        logoClicksRef.current = 0;
+      }, 700);
+    }
+  };
 
   // Mercado Pago feedback parameters checking
   const [paymentStatus, setPaymentStatus] = useState(null);
@@ -297,7 +313,17 @@ export default function Landing() {
       {/* Header */}
       <header className={`${styles.header} ${isHeaderScrolled ? styles.headerScrolled : ''}`}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-          <div className={styles.logoContainer}>
+          <div
+            className={styles.logoContainer}
+            onClick={handleLogoClick}
+            style={{ cursor: 'pointer' }}
+            title="Las Manitos de Mili"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleLogoClick();
+            }}
+          >
             <img src="/logo.jpg" alt="Las Manitos de Mili - Manicuría Rosario" className={styles.logoImg} />
           </div>
           <nav className={styles.nav}>
@@ -824,6 +850,25 @@ export default function Landing() {
             </a>
           </div>
           <p>© {new Date().getFullYear()} <a href="/admin/login" style={{ color: 'inherit', textDecoration: 'none', cursor: 'default' }}>Las Manitos de Mili</a>. Creado con mucho <Heart size={12} style={{ display: 'inline', color: 'var(--accent-rose)', fill: 'var(--accent-rose)' }} /> para hacerte brillar.</p>
+          <div style={{ marginTop: '10px' }}>
+            <a
+              href="/admin"
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+                opacity: 0.65,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                textDecoration: 'none',
+                transition: 'opacity 0.2s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.65')}
+            >
+              <Lock size={12} /> Acceso Administradora
+            </a>
+          </div>
           <p style={{ marginTop: '8px', fontSize: '0.8rem', opacity: 0.8 }}>
             Proyecto creado por{' '}
             <a 
