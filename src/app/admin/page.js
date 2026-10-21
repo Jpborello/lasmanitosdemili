@@ -69,6 +69,9 @@ export default function AdminDashboard() {
         if (data.authenticated) {
           setAuthenticated(true);
           setLoadingAuth(false);
+          try {
+            localStorage.setItem('admin_preferred_view', 'admin');
+          } catch {}
           // Establecer fecha por defecto como hoy en formato local YYYY-MM-DD
           const today = new Date();
           const offset = today.getTimezoneOffset();
@@ -825,6 +828,10 @@ export default function AdminDashboard() {
   // 11. Cerrar sesión
   const handleLogout = async () => {
     try {
+      try {
+        localStorage.removeItem('admin_preferred_view');
+        sessionStorage.removeItem('view_as_client');
+      } catch {}
       await fetch('/api/admin/login', { method: 'DELETE' });
       router.push('/admin/login');
     } catch (err) {
@@ -848,7 +855,13 @@ export default function AdminDashboard() {
           Las Manitos de Mili <span>Panel de Control</span>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <Link href="/" className={styles.webBtn}>
+          <Link
+            href="/?view=client"
+            className={styles.webBtn}
+            onClick={() => {
+              try { sessionStorage.setItem('view_as_client', 'true'); } catch {}
+            }}
+          >
             <ExternalLink size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} /> Volver a la Web
           </Link>
           <button type="button" className={styles.logoutBtn} onClick={handleLogout}>

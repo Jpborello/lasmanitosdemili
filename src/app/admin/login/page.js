@@ -49,6 +49,11 @@ export default function AdminLogin() {
         throw new Error(data.error || 'Contraseña incorrecta');
       }
 
+      try {
+        localStorage.setItem('admin_preferred_view', 'admin');
+        sessionStorage.removeItem('view_as_client');
+      } catch {}
+
       router.push('/admin');
     } catch (err) {
       setError(err.message);

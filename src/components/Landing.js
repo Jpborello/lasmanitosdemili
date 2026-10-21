@@ -59,17 +59,59 @@ export default function Landing() {
   // FAQ acordeón
   const [openFaq, setOpenFaq] = useState(0);
 
-  // Estado de Administradora para mostrar botón en navbar si está autenticada
+  // Estado de Administradora para mostrar botón en navbar y redireccionar si es Sami
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isRedirectingAdmin, setIsRedirectingAdmin] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isClientExplicit = urlParams.get('view') === 'client' || sessionStorage.getItem('view_as_client') === 'true';
+      return localStorage.getItem('admin_preferred_view') === 'admin' && !isClientExplicit;
+    } catch {
+      return false;
+    }
+  });
+
   useEffect(() => {
+    // Si viene explícitamente a ver la web con ?view=client, guardarlo en sessionStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('view') === 'client') {
+          sessionStorage.setItem('view_as_client', 'true');
+        }
+      } catch {}
+    }
+
     fetch('/api/admin/login')
       .then(res => res.json())
       .then(data => {
         if (data.authenticated) {
           setIsAdmin(true);
+
+          let isClientExplicit = false;
+          let preferredView = null;
+          if (typeof window !== 'undefined') {
+            try {
+              isClientExplicit = window.location.search.includes('view=client') || sessionStorage.getItem('view_as_client') === 'true';
+              preferredView = localStorage.getItem('admin_preferred_view');
+            } catch {}
+          }
+
+          // Si es Sami y no pidió ver la web explícitamente como clienta, ir directo a admin
+          if (!isClientExplicit && preferredView === 'admin') {
+            window.location.replace('/admin');
+            return;
+          }
+        } else {
+          try { localStorage.removeItem('admin_preferred_view'); } catch {}
         }
+        setIsRedirectingAdmin(false);
       })
-      .catch(err => console.error('Error checking admin status:', err));
+      .catch(err => {
+        console.error('Error checking admin status:', err);
+        setIsRedirectingAdmin(false);
+      });
   }, []);
 
   // Acceso para Sami/Mili: mantener presionado 1s O 3 toques rápidos
@@ -285,8 +327,55 @@ export default function Landing() {
     }
   };
 
+  if (isRedirectingAdmin) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-primary)', gap: '16px' }}>
+        <div className="loader"></div>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>Abriendo panel de administración...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="animate-fade-in">
+      {/* Barra superior si Sami está navegando la web en modo clienta */}
+      {isAdmin && (
+        <div style={{
+          backgroundColor: '#2c2220',
+          color: '#ffffff',
+          padding: '8px 16px',
+          fontSize: '0.8rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          position: 'sticky',
+          top: 0,
+          zIndex: 1001,
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+        }}>
+          <span>👑 Hola Mili · Estás viendo la web como clienta</span>
+          <a
+            href="/admin"
+            onClick={() => {
+              try {
+                sessionStorage.removeItem('view_as_client');
+                localStorage.setItem('admin_preferred_view', 'admin');
+              } catch {}
+            }}
+            style={{
+              backgroundColor: 'var(--accent-gold)',
+              color: '#ffffff',
+              padding: '4px 12px',
+              borderRadius: '20px',
+              fontWeight: 600,
+              fontSize: '0.75rem',
+              textDecoration: 'none'
+            }}
+          >
+            Volver a mi Panel
+          </a>
+        </div>
+      )}
 
       {paymentStatus && (
         <div className={styles.lightboxOverlay} style={{ zIndex: 9999 }}>
@@ -381,7 +470,18 @@ export default function Landing() {
             <a href="#turnos" className={styles.navLink}>Reservar</a>
             <a href="/mis-turnos" className={styles.navLink}>Mis Turnos</a>
             {isAdmin ? (
-              <a href="/admin" className={styles.navAdminLink}>Admin</a>
+              <a
+                href="/admin"
+                className={styles.navAdminLink}
+                onClick={() => {
+                  try {
+                    sessionStorage.removeItem('view_as_client');
+                    localStorage.setItem('admin_preferred_view', 'admin');
+                  } catch {}
+                }}
+              >
+                Admin
+              </a>
             ) : (
               <a href="/admin" className={styles.navLockLink} title="Panel de Administración" aria-label="Panel de Administración">
                 <Lock size={15} />

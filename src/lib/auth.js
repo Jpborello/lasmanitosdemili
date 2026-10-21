@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { getDb } from './db';
 
 // Duración de la sesión de administrador
-const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 7; // 7 días
+const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 60; // 60 días
 
 // Rate limiting de intentos de login fallidos
 const LOGIN_ATTEMPT_WINDOW_MS = 1000 * 60 * 15; // Ventana de 15 minutos
