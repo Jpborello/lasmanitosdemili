@@ -24,6 +24,10 @@
   align-items: center;
   gap: 12px;
   padding: 5px 0;
+  touch-action: manipulation !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
 }
 
 .logoImg {
@@ -34,10 +38,32 @@
   border: 2px solid var(--accent-gold);
   box-shadow: var(--shadow-soft);
   transition: transform 0.3s ease;
+  touch-action: manipulation !important;
+  pointer-events: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-drag: none !important;
+  user-select: none !important;
 }
 
 .logoImg:hover {
   transform: scale(1.05);
+}
+
+.navLockLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  opacity: 0.55;
+  padding: 6px;
+  border-radius: 50%;
+  transition: var(--transition-smooth);
+}
+
+.navLockLink:hover {
+  opacity: 1;
+  color: var(--accent-rose);
+  background-color: rgba(220, 174, 150, 0.12);
 }
 
 .nav {

@@ -72,18 +72,60 @@ export default function Landing() {
       .catch(err => console.error('Error checking admin status:', err));
   }, []);
 
-  // Triple toque en el logo para acceso secreto de Sami/Mili
-  const logoClicksRef = useRef(0);
-  const logoTimerRef = useRef(null);
-  const handleLogoClick = () => {
-    logoClicksRef.current += 1;
-    if (logoTimerRef.current) clearTimeout(logoTimerRef.current);
-    if (logoClicksRef.current >= 3) {
-      logoClicksRef.current = 0;
-      window.location.href = '/admin';
+  // Acceso para Sami/Mili: mantener presionado 1s O 3 toques rápidos
+  const logoTapsRef = useRef(0);
+  const logoTapTimerRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+
+  const goToAdmin = () => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try { navigator.vibrate([40, 60, 40]); } catch {}
+    }
+    window.location.href = '/admin';
+  };
+
+  const handleTouchStart = () => {
+    longPressTimerRef.current = setTimeout(() => {
+      goToAdmin();
+    }, 1100);
+  };
+
+  const handleTouchEnd = (e) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    logoTapsRef.current += 1;
+    if (logoTapTimerRef.current) clearTimeout(logoTapTimerRef.current);
+
+    if (logoTapsRef.current >= 3) {
+      logoTapsRef.current = 0;
+      if (e.cancelable) e.preventDefault();
+      goToAdmin();
     } else {
-      logoTimerRef.current = setTimeout(() => {
-        logoClicksRef.current = 0;
+      logoTapTimerRef.current = setTimeout(() => {
+        logoTapsRef.current = 0;
+      }, 700);
+    }
+  };
+
+  const handleTouchMove = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleLogoClick = () => {
+    logoTapsRef.current += 1;
+    if (logoTapTimerRef.current) clearTimeout(logoTapTimerRef.current);
+    if (logoTapsRef.current >= 3) {
+      logoTapsRef.current = 0;
+      goToAdmin();
+    } else {
+      logoTapTimerRef.current = setTimeout(() => {
+        logoTapsRef.current = 0;
       }, 700);
     }
   };
@@ -316,12 +358,15 @@ export default function Landing() {
           <div
             className={styles.logoContainer}
             onClick={handleLogoClick}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            onTouchMove={handleTouchMove}
             style={{ cursor: 'pointer' }}
-            title="Las Manitos de Mili"
+            title="Las Manitos de Mili (Mantené presionado para Admin)"
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleLogoClick();
+              if (e.key === 'Enter') goToAdmin();
             }}
           >
             <img src="/logo.jpg" alt="Las Manitos de Mili - Manicuría Rosario" className={styles.logoImg} />
@@ -335,8 +380,12 @@ export default function Landing() {
             <a href="#ubicacion" className={styles.navLink}>Estudio</a>
             <a href="#turnos" className={styles.navLink}>Reservar</a>
             <a href="/mis-turnos" className={styles.navLink}>Mis Turnos</a>
-            {isAdmin && (
+            {isAdmin ? (
               <a href="/admin" className={styles.navAdminLink}>Admin</a>
+            ) : (
+              <a href="/admin" className={styles.navLockLink} title="Panel de Administración" aria-label="Panel de Administración">
+                <Lock size={15} />
+              </a>
             )}
           </nav>
         </div>
