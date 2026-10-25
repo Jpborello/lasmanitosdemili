@@ -237,12 +237,6 @@ export default function AdminDashboard() {
     }
   };
 
-  useEffect(() => {
-    if (activeTab === 'services' && authenticated) {
-      setTimeout(fetchServices, 0);
-    }
-  }, [activeTab, authenticated]);
-
   // 12. Obtener listado de clientas
   const fetchClients = async () => {
     if (!authenticated) return;
@@ -259,6 +253,19 @@ export default function AdminDashboard() {
       setLoadingClients(false);
     }
   };
+
+  useEffect(() => {
+    if (authenticated) {
+      setTimeout(fetchServices, 0);
+      setTimeout(fetchClients, 0);
+    }
+  }, [authenticated]);
+
+  useEffect(() => {
+    if (activeTab === 'services' && authenticated) {
+      setTimeout(fetchServices, 0);
+    }
+  }, [activeTab, authenticated]);
 
   useEffect(() => {
     if (activeTab === 'clients' && authenticated) {
@@ -825,6 +832,31 @@ export default function AdminDashboard() {
     }
   };
 
+  // 11d. Crear un turno manual desde el panel de administración
+  const handleCreateManualAppointment = async (payload) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        await fetchAppointments();
+        await fetchClients();
+        return { success: true, message: data.message, appointment: data.appointment };
+      }
+      return { success: false, error: data.error || 'Error al agendar el turno manual.' };
+    } catch (err) {
+      console.error('Error in handleCreateManualAppointment:', err);
+      return { success: false, error: 'Error de conexión con el servidor.' };
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // 11. Cerrar sesión
   const handleLogout = async () => {
     try {
@@ -932,6 +964,9 @@ export default function AdminDashboard() {
             handleMarkNoShow={handleMarkNoShow}
             handleApproveDeposit={handleApproveDeposit}
             actionLoading={actionLoading}
+            servicesList={servicesList}
+            clientsList={clientsList}
+            onCreateManualAppointment={handleCreateManualAppointment}
           />
         </div>
       )}

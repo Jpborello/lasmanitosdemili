@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { RefreshCw, Search, Users, Phone, Mail, Calendar, DollarSign, ShieldCheck, ShieldAlert, ShieldX, Pencil, X } from 'lucide-react';
+import { RefreshCw, Search, Users, Phone, Mail, Calendar, DollarSign, ShieldCheck, ShieldAlert, ShieldX, Pencil, X, PhoneOff } from 'lucide-react';
 import styles from '@/styles/admin.module.css';
+import { isNoPhone } from '@/lib/phone';
 
 const TRUST_LABELS = {
   trusted: { label: 'Confiable', bg: 'rgba(136, 167, 131, 0.15)', color: 'var(--success)', Icon: ShieldCheck },
@@ -29,7 +30,7 @@ export default function ClientsTab({
     setEditingClient(client);
     setEditForm({
       name: client.client_name || '',
-      phone: client.client_phone || '',
+      phone: isNoPhone(client.client_phone) ? '' : client.client_phone || '',
       email: client.client_email || '',
     });
     setEditError('');
@@ -48,9 +49,16 @@ export default function ClientsTab({
       return;
     }
 
+    const hasNoPhoneOriginally = isNoPhone(editingClient.client_phone);
     const cleanPhone = editForm.phone.replace(/\D/g, '').replace(/^0+/, '');
-    if (!cleanPhone || cleanPhone.length < 8) {
+
+    if (!cleanPhone && !hasNoPhoneOriginally) {
       setEditError('Ingresá un teléfono válido.');
+      return;
+    }
+
+    if (cleanPhone && cleanPhone.length < 8) {
+      setEditError('Ingresá un teléfono válido (mínimo 8 dígitos).');
       return;
     }
 
@@ -60,7 +68,7 @@ export default function ClientsTab({
     const result = await onEditClient(editingClient.client_phone, {
       name: editForm.name,
       email: editForm.email,
-      new_phone: cleanPhone,
+      ...(cleanPhone ? { new_phone: cleanPhone } : {}),
     });
 
     setSavingEdit(false);
@@ -223,7 +231,13 @@ export default function ClientsTab({
                       {client.client_name}
                     </td>
                     <td className={styles.rankingTd}>
-                      {client.client_phone}
+                      {isNoPhone(client.client_phone) ? (
+                        <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.82rem' }}>
+                          Sin celular
+                        </span>
+                      ) : (
+                        client.client_phone
+                      )}
                     </td>
                     <td className={styles.rankingTd} style={{ fontSize: '0.85rem' }}>
                       {client.client_email ? (
@@ -269,16 +283,26 @@ export default function ClientsTab({
                     </td>
                     <td className={styles.rankingTd}>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center' }}>
-                        <a
-                          href={getSimpleWhatsAppLink(client.client_phone, client.client_name)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={styles.contactLink}
-                          style={{ display: 'inline-flex', justifyContent: 'center' }}
-                          title="Enviar WhatsApp"
-                        >
-                          <Phone size={16} />
-                        </a>
+                        {isNoPhone(client.client_phone) ? (
+                          <span
+                            className={styles.contactLink}
+                            style={{ opacity: 0.35, cursor: 'not-allowed', display: 'inline-flex', justifyContent: 'center' }}
+                            title="Sin celular registrado"
+                          >
+                            <PhoneOff size={16} />
+                          </span>
+                        ) : (
+                          <a
+                            href={getSimpleWhatsAppLink(client.client_phone, client.client_name)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.contactLink}
+                            style={{ display: 'inline-flex', justifyContent: 'center' }}
+                            title="Enviar WhatsApp"
+                          >
+                            <Phone size={16} />
+                          </a>
+                        )}
 
                         <button
                           type="button"

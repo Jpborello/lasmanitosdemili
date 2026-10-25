@@ -10,5 +10,17 @@
  */
 export function normalizePhone(phone) {
   if (!phone) return '';
+  if (typeof phone === 'string' && phone.startsWith('sintel_')) {
+    return phone;
+  }
   return phone.replace(/\D/g, '').replace(/^0+/, '');
+}
+
+export function isNoPhone(phone) {
+  return typeof phone === 'string' && phone.startsWith('sintel_');
+}
+
+export function formatClientPhone(phone) {
+  if (!phone || isNoPhone(phone)) return 'Sin celular';
+  return phone;
 }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { cookies } from 'next/headers';
 import { isAdminAuthenticated } from '@/lib/auth';
+import { normalizePhone } from '@/lib/phone';
 
 // Función para obtener la fecha formateada en YYYY-MM-DD en la zona horaria de la estética (Argentina)
 function getLocalDateString(date) {
@@ -172,15 +173,17 @@ export async function GET() {
       currentVsPrevGrowth = Math.round(((currentRev - prevRev) / prevRev) * 1000) / 10;
     }
 
-    // 4. Obtener Ranking de Clientas (por volumen de gasto)
+    // 4. Obtener Ranking de Clientas (por volumen de gasto), excluyendo a la dueña del salón
+    const ownerPhone = normalizePhone(process.env.MILI_PHONE_NUMBER || '3413022674');
     const rankingResult = await db.execute({
       sql: `SELECT c.name as client_name, c.phone as client_phone, COALESCE(SUM(a.price), 0) as total_spent, COUNT(a.id) as visits_count
             FROM clients c
             JOIN appointments a ON c.phone = a.client_phone
+            WHERE c.phone != ?
             GROUP BY c.phone
             ORDER BY total_spent DESC
             LIMIT 15`,
-      args: [],
+      args: [ownerPhone],
     });
 
     return NextResponse.json({
