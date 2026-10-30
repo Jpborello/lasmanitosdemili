@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Sparkles, Clock, MapPin, ShieldCheck, Heart, ChevronDown, ChevronLeft, ChevronRight, MessageCircle, Lock } from 'lucide-react';
 import styles from '@/styles/landing.module.css';
 import BookingCalendar from './BookingCalendar';
+import Turno20Aviso from './Turno20Aviso';
 import Reveal from './Reveal';
 import { DEFAULT_SERVICES, YEARS_OF_EXPERIENCE, MILI_WHATSAPP_NUMBER, TURNOS_ATENDIDOS_BASE_OFFSET } from '@/lib/constants';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
@@ -970,6 +971,9 @@ export default function Landing() {
           <BookingCalendar />
         </div>
       </section>
+
+      {/* Aviso del turno especial de las 20hs (solo cuando está prendido) */}
+      <Turno20Aviso />
 
       {/* Botón flotante de WhatsApp */}
       <a

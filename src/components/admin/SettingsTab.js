@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import styles from '@/styles/admin.module.css';
+import Turno20Section from './Turno20Section';
 
 import { useEffect } from 'react';
 
@@ -13,6 +14,9 @@ export default function SettingsTab({
   blockedMonths,
   blockedSlots,
   extraSlots,
+  slot20Enabled,
+  slot20Dates,
+  slot20Notice,
   mpEnabled,
   mpAccessToken,
   mpPublicKey,
@@ -30,6 +34,9 @@ export default function SettingsTab({
   onRemoveBlockedSlot,
   onAddExtraSlot,
   onRemoveExtraSlot,
+  onToggleSlot20,
+  onToggleSlot20Date,
+  onSaveSlot20Notice,
   onSaveMercadoPago,
   onSaveDepositSettings,
 }) {
@@ -154,8 +161,19 @@ export default function SettingsTab({
           <li>• Lunes a Viernes: 8:00, 10:00, 14:30, 16:00 y {enable18Weekday ? '18:00' : '18:00 (Inactivo)'} hs.</li>
           <li>• Sábados: 8:00, 10:00, 12:00, 14:30, 16:00 y 18:00 hs.</li>
           <li>• Domingos: Cerrado.</li>
+          {slot20Enabled && <li>• 20:00 hs: solo los días marcados abajo.</li>}
         </ul>
       </div>
+
+      <Turno20Section
+        enabled={slot20Enabled}
+        dates={slot20Dates}
+        notice={slot20Notice}
+        actionLoading={actionLoading}
+        onToggle={onToggleSlot20}
+        onToggleDate={onToggleSlot20Date}
+        onSaveNotice={onSaveSlot20Notice}
+      />
 
       {/* Días Habilitados */}
       <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>

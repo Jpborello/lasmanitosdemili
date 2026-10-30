@@ -94,6 +94,17 @@ export async function getDb() {
         INSERT OR IGNORE INTO settings (key, value) VALUES ('extra_slots', '')
       `);
 
+      // Turno especial de las 20hs: interruptor + días marcados a mano + texto del aviso
+      await db.execute(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('slot_20_enabled', 'false')
+      `);
+      await db.execute(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('slot_20_dates', '')
+      `);
+      await db.execute(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('slot_20_notice', '')
+      `);
+
       // Crear tabla de reviews
       await db.execute(`
         CREATE TABLE IF NOT EXISTS reviews (

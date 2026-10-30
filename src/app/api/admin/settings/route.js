@@ -20,6 +20,9 @@ export async function GET() {
       blocked_months: '',
       blocked_slots: '',
       extra_slots: '',
+      slot_20_enabled: false,
+      slot_20_dates: '',
+      slot_20_notice: '',
       mp_enabled: false,
       mp_public_key: '',
       mp_deposit_amount: 2000,
@@ -41,6 +44,12 @@ export async function GET() {
         settings.blocked_slots = row.value;
       } else if (row.key === 'extra_slots') {
         settings.extra_slots = row.value;
+      } else if (row.key === 'slot_20_enabled') {
+        settings.slot_20_enabled = row.value === 'true';
+      } else if (row.key === 'slot_20_dates') {
+        settings.slot_20_dates = row.value;
+      } else if (row.key === 'slot_20_notice') {
+        settings.slot_20_notice = row.value;
       } else if (row.key === 'mp_enabled') {
         settings.mp_enabled = row.value === 'true';
       } else if (row.key === 'mp_public_key') {
@@ -81,6 +90,9 @@ export async function POST(request) {
       blocked_months,
       blocked_slots,
       extra_slots,
+      slot_20_enabled,
+      slot_20_dates,
+      slot_20_notice,
       mp_enabled,
       mp_access_token,
       mp_public_key,
@@ -130,6 +142,27 @@ export async function POST(request) {
       await db.execute({
         sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
         args: ['extra_slots', extra_slots.toString()],
+      });
+    }
+
+    if (slot_20_enabled !== undefined) {
+      await db.execute({
+        sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        args: ['slot_20_enabled', slot_20_enabled ? 'true' : 'false'],
+      });
+    }
+
+    if (slot_20_dates !== undefined) {
+      await db.execute({
+        sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        args: ['slot_20_dates', slot_20_dates.toString()],
+      });
+    }
+
+    if (slot_20_notice !== undefined) {
+      await db.execute({
+        sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        args: ['slot_20_notice', slot_20_notice.toString().slice(0, 300)],
       });
     }
 
@@ -184,6 +217,9 @@ export async function POST(request) {
       blocked_months: '',
       blocked_slots: '',
       extra_slots: '',
+      slot_20_enabled: false,
+      slot_20_dates: '',
+      slot_20_notice: '',
       mp_enabled: false,
       mp_public_key: '',
       mp_deposit_amount: 2000,
@@ -204,6 +240,12 @@ export async function POST(request) {
         settings.blocked_slots = row.value;
       } else if (row.key === 'extra_slots') {
         settings.extra_slots = row.value;
+      } else if (row.key === 'slot_20_enabled') {
+        settings.slot_20_enabled = row.value === 'true';
+      } else if (row.key === 'slot_20_dates') {
+        settings.slot_20_dates = row.value;
+      } else if (row.key === 'slot_20_notice') {
+        settings.slot_20_notice = row.value;
       } else if (row.key === 'mp_enabled') {
         settings.mp_enabled = row.value === 'true';
       } else if (row.key === 'mp_public_key') {

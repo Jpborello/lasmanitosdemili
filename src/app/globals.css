@@ -151,8 +151,10 @@ button, input, select, textarea {
   to { opacity: 1; transform: scale(1); }
 }
 
+/* backwards (no forwards): si el transform final queda aplicado, los position:fixed
+   de adentro (WhatsApp, avisos) dejan de flotar y quedan al fondo de la página */
 .animate-fade-in {
-  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 .animate-scale-in {

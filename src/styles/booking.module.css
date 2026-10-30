@@ -149,6 +149,7 @@
 }
 
 .timeSlot {
+  position: relative;
   padding: 10px 0;
   text-align: center;
   border: 1px solid var(--border-color);
@@ -163,6 +164,22 @@
 .timeSlot:hover:not(.slotBooked) {
   border-color: var(--accent-rose);
   color: var(--accent-rose);
+}
+
+/* Cartelito "Nuevo" sobre el turno especial de las 20hs */
+.slotNewBadge {
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-rose-strong);
+  color: var(--white);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  pointer-events: none;
 }
 
 .slotSelected {

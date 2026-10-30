@@ -7,6 +7,10 @@ import { DEFAULT_SERVICES, MILI_WHATSAPP_NUMBER } from '@/lib/constants';
 import { useClientSession } from '@/hooks/useClientSession';
 import { fireConfetti } from '@/lib/confetti';
 import { normalizePhone } from '@/lib/phone';
+import { useLiveSettings } from '@/hooks/useLiveSettings';
+import { TURNO_20_TIME, parseTurno20Dates, upcomingTurno20Dates } from '@/lib/turno20';
+
+const splitList = (value) => (value || '').split(',').map(s => s.trim()).filter(Boolean);
 
 export default function BookingCalendar() {
   const {
@@ -28,12 +32,22 @@ export default function BookingCalendar() {
   const [servicesList, setServicesList] = useState(DEFAULT_SERVICES);
   
   const [bookedTimes, setBookedTimes] = useState([]);
-  const [enable18Weekday, setEnable18Weekday] = useState(true);
-  const [blockedWeekdays, setBlockedWeekdays] = useState([0]); // 0 = Domingo cerrado por defecto
-  const [blockedDates, setBlockedDates] = useState([]);
-  const [blockedMonths, setBlockedMonths] = useState([]); // formato 'YYYY-MM'
-  const [blockedSlots, setBlockedSlots] = useState([]);
-  const [extraSlots, setExtraSlots] = useState([]);
+
+  // Configuración de horarios y bloqueos (se refresca sola, ver useLiveSettings)
+  const liveSettings = useLiveSettings();
+  const enable18Weekday = liveSettings?.enable_18_weekday ?? true;
+  const blockedWeekdays = liveSettings
+    ? splitList(liveSettings.blocked_weekdays).map(d => parseInt(d, 10)).filter(n => !isNaN(n))
+    : [0]; // 0 = Domingo cerrado por defecto
+  const blockedDates = splitList(liveSettings?.blocked_dates);
+  const blockedMonths = splitList(liveSettings?.blocked_months); // formato 'YYYY-MM'
+  const blockedSlots = splitList(liveSettings?.blocked_slots);
+  const extraSlots = splitList(liveSettings?.extra_slots);
+  // Días con turno especial de 20hs (solo si Mili lo tiene prendido)
+  const turno20Dates = upcomingTurno20Dates(
+    liveSettings?.slot_20_enabled,
+    parseTurno20Dates(liveSettings?.slot_20_dates)
+  );
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(null);
@@ -41,8 +55,8 @@ export default function BookingCalendar() {
 
   // Estado de confianza de la clienta (confiable / restringida / bloqueada) y seña
   const [trustStatus, setTrustStatus] = useState('trusted');
-  const [depositAmount, setDepositAmount] = useState(5000);
-  const [depositInstructions, setDepositInstructions] = useState('');
+  const depositAmount = liveSettings?.restricted_deposit_amount ?? 5000;
+  const depositInstructions = liveSettings?.deposit_payment_instructions ?? '';
   const [showRestrictedModal, setShowRestrictedModal] = useState(false);
   const [depositAcknowledged, setDepositAcknowledged] = useState(false);
 
@@ -56,43 +70,8 @@ export default function BookingCalendar() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  // Obtener la configuración del turno de las 18:00hs, bloqueos y los servicios desde la DB
+  // Obtener los servicios desde la DB
   useEffect(() => {
-    fetch('/api/admin/settings')
-      .then(res => res.json())
-      .then(data => {
-        if (data.enable_18_weekday !== undefined) {
-          setEnable18Weekday(data.enable_18_weekday);
-        }
-        if (data.blocked_weekdays !== undefined) {
-          const list = data.blocked_weekdays.split(',').map(d => parseInt(d.trim(), 10)).filter(n => !isNaN(n));
-          setBlockedWeekdays(list);
-        }
-        if (data.blocked_dates !== undefined) {
-          const list = data.blocked_dates.split(',').map(d => d.trim()).filter(Boolean);
-          setBlockedDates(list);
-        }
-        if (data.blocked_months !== undefined) {
-          const list = data.blocked_months.split(',').map(m => m.trim()).filter(Boolean);
-          setBlockedMonths(list);
-        }
-        if (data.blocked_slots !== undefined) {
-          const list = data.blocked_slots.split(',').map(s => s.trim()).filter(Boolean);
-          setBlockedSlots(list);
-        }
-        if (data.extra_slots !== undefined) {
-          const list = data.extra_slots.split(',').map(s => s.trim()).filter(Boolean);
-          setExtraSlots(list);
-        }
-        if (data.restricted_deposit_amount !== undefined) {
-          setDepositAmount(data.restricted_deposit_amount);
-        }
-        if (data.deposit_payment_instructions !== undefined) {
-          setDepositInstructions(data.deposit_payment_instructions);
-        }
-      })
-      .catch(err => console.error('Error fetching settings:', err));
-
     fetch('/api/admin/services')
       .then(res => res.json())
       .then(data => {
@@ -280,6 +259,10 @@ export default function BookingCalendar() {
         }
       }
     });
+    // Turno especial de las 20hs en los días que marcó Mili
+    if (turno20Dates.includes(dateStr) && !times.includes(TURNO_20_TIME)) {
+      times.push(TURNO_20_TIME);
+    }
     times.sort();
 
     // Filtrar los slots que estén explícitamente bloqueados
@@ -680,6 +663,9 @@ export default function BookingCalendar() {
                       disabled={isBooked}
                     >
                       {time} hs
+                      {time === TURNO_20_TIME && turno20Dates.length > 0 && (
+                        <span className={styles.slotNewBadge}>Nuevo</span>
+                      )}
                     </button>
                   );
                 })}

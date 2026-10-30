@@ -195,6 +195,7 @@
 .switch {
   position: relative;
   display: inline-block;
+  flex-shrink: 0;
   width: 52px;
   height: 28px;
 }
@@ -240,6 +241,91 @@
 
 .switch input:checked + .slider:before {
   transform: translateX(24px);
+}
+
+/* Turno especial de las 20hs: mini calendario para marcar días */
+.t20Calendar {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  transition: opacity 0.2s ease;
+}
+
+.t20Disabled {
+  opacity: 0.55;
+}
+
+.t20Header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.t20Month {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.t20Nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+}
+
+.t20Nav:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.t20Grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.t20Weekday {
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+
+.t20Day {
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: inherit;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.t20Day:hover:not(:disabled) {
+  border-color: var(--accent-rose);
+}
+
+.t20Day:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.t20DayMarked {
+  background-color: var(--accent-rose);
+  border-color: var(--accent-rose);
+  color: var(--white);
+  font-weight: 600;
 }
 
 /* Bookings list panel */

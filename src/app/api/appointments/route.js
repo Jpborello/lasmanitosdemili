@@ -7,6 +7,7 @@ import { sendClientConfirmationEmail } from '@/lib/email';
 import { isAdminAuthenticated } from '@/lib/auth';
 import { MILI_WHATSAPP_NUMBER } from '@/lib/constants';
 import { normalizePhone } from '@/lib/phone';
+import { TURNO_20_TIME, parseTurno20Dates } from '@/lib/turno20';
 
 // GET: Obtener turnos
 export async function GET(request) {
@@ -124,6 +125,8 @@ export async function POST(request) {
       blocked_months: '',
       blocked_slots: '',
       extra_slots: '',
+      slot_20_enabled: false,
+      slot_20_dates: '',
       mp_enabled: false,
       mp_access_token: '',
       mp_deposit_amount: 2000,
@@ -143,6 +146,10 @@ export async function POST(request) {
         settings.blocked_slots = row.value;
       } else if (row.key === 'extra_slots') {
         settings.extra_slots = row.value;
+      } else if (row.key === 'slot_20_enabled') {
+        settings.slot_20_enabled = row.value === 'true';
+      } else if (row.key === 'slot_20_dates') {
+        settings.slot_20_dates = row.value;
       } else if (row.key === 'mp_enabled') {
         settings.mp_enabled = row.value === 'true';
       } else if (row.key === 'mp_access_token') {
@@ -190,7 +197,12 @@ export async function POST(request) {
     // Horarios extra habilitados puntualmente para esta fecha específica (fuera del horario fijo,
     // o incluso el 18:00hs de semana cuando el interruptor general está apagado)
     const extraSlotsArray = settings.extra_slots.split(',').map(s => s.trim()).filter(Boolean);
-    const isExtraSlotForThisDate = extraSlotsArray.includes(`${appointment_date}_${appointment_time}`);
+    const isExtraSlotForThisDate =
+      extraSlotsArray.includes(`${appointment_date}_${appointment_time}`) ||
+      // Turno especial de las 20hs: solo si está activo y Mili marcó este día
+      (appointment_time === TURNO_20_TIME &&
+        settings.slot_20_enabled &&
+        parseTurno20Dates(settings.slot_20_dates).includes(appointment_date));
 
     if (dayOfWeek === 6) {
       // Sábado

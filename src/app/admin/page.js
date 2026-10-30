@@ -8,6 +8,7 @@ import styles from '@/styles/admin.module.css';
 
 import AppointmentsTab from '@/components/admin/AppointmentsTab';
 import SettingsTab from '@/components/admin/SettingsTab';
+import { parseTurno20Dates } from '@/lib/turno20';
 import ReviewsTab from '@/components/admin/ReviewsTab';
 import MetricsTab from '@/components/admin/MetricsTab';
 import ServicesTab from '@/components/admin/ServicesTab';
@@ -47,6 +48,9 @@ export default function AdminDashboard() {
   const [blockedMonths, setBlockedMonths] = useState([]); // formato 'YYYY-MM'
   const [blockedSlots, setBlockedSlots] = useState([]);
   const [extraSlots, setExtraSlots] = useState([]);
+  const [slot20Enabled, setSlot20Enabled] = useState(false);
+  const [slot20Dates, setSlot20Dates] = useState([]);
+  const [slot20Notice, setSlot20Notice] = useState('');
   const [mpEnabled, setMpEnabled] = useState(false);
   const [mpAccessToken, setMpAccessToken] = useState('');
   const [mpPublicKey, setMpPublicKey] = useState('');
@@ -115,6 +119,15 @@ export default function AdminDashboard() {
         if (data.extra_slots !== undefined) {
           const list = data.extra_slots.split(',').map(s => s.trim()).filter(Boolean);
           setExtraSlots(list);
+        }
+        if (data.slot_20_enabled !== undefined) {
+          setSlot20Enabled(data.slot_20_enabled);
+        }
+        if (data.slot_20_dates !== undefined) {
+          setSlot20Dates(parseTurno20Dates(data.slot_20_dates));
+        }
+        if (data.slot_20_notice !== undefined) {
+          setSlot20Notice(data.slot_20_notice);
         }
         if (data.mp_enabled !== undefined) {
           setMpEnabled(data.mp_enabled);
@@ -597,6 +610,80 @@ export default function AdminDashboard() {
     }
   };
 
+  // Turno especial de las 20hs: prender/apagar
+  const handleToggleSlot20 = async () => {
+    setActionLoading(true);
+    try {
+      const nextVal = !slot20Enabled;
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slot_20_enabled: nextVal }),
+      });
+
+      if (res.ok) {
+        setSlot20Enabled(nextVal);
+      } else {
+        alert('No se pudo guardar la configuración.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión al actualizar.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Turno especial de las 20hs: marcar/desmarcar un día puntual
+  const handleToggleSlot20Date = async (dateStr) => {
+    setActionLoading(true);
+    try {
+      const nextDates = slot20Dates.includes(dateStr)
+        ? slot20Dates.filter(d => d !== dateStr)
+        : [...slot20Dates, dateStr].sort();
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slot_20_dates: nextDates.join(',') }),
+      });
+
+      if (res.ok) {
+        setSlot20Dates(nextDates);
+      } else {
+        alert('No se pudo guardar el día.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión al actualizar.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Turno especial de las 20hs: texto personalizado del aviso (vacío = automático)
+  const handleSaveSlot20Notice = async (text) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slot_20_notice: text }),
+      });
+
+      if (res.ok) {
+        setSlot20Notice(text);
+        alert('Aviso guardado.');
+      } else {
+        alert('No se pudo guardar el aviso.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión al actualizar.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Guardar configuración de Mercado Pago
   const handleSaveMercadoPago = async (config) => {
     setActionLoading(true);
@@ -932,6 +1019,9 @@ export default function AdminDashboard() {
             blockedMonths={blockedMonths}
             blockedSlots={blockedSlots}
             extraSlots={extraSlots}
+            slot20Enabled={slot20Enabled}
+            slot20Dates={slot20Dates}
+            slot20Notice={slot20Notice}
             mpEnabled={mpEnabled}
             mpAccessToken={mpAccessToken}
             mpPublicKey={mpPublicKey}
@@ -949,6 +1039,9 @@ export default function AdminDashboard() {
             onRemoveBlockedSlot={handleRemoveBlockedSlot}
             onAddExtraSlot={handleAddExtraSlot}
             onRemoveExtraSlot={handleRemoveExtraSlot}
+            onToggleSlot20={handleToggleSlot20}
+            onToggleSlot20Date={handleToggleSlot20Date}
+            onSaveSlot20Notice={handleSaveSlot20Notice}
             onSaveMercadoPago={handleSaveMercadoPago}
             onSaveDepositSettings={handleSaveDepositSettings}
           />
