@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import styles from '@/styles/admin.module.css';
 import Turno20Section from './Turno20Section';
+import PausaSection from './PausaSection';
 
 import { useEffect } from 'react';
 
@@ -17,6 +18,8 @@ export default function SettingsTab({
   slot20Enabled,
   slot20Dates,
   slot20Notice,
+  pausaEnabled,
+  pausaReturn,
   mpEnabled,
   mpAccessToken,
   mpPublicKey,
@@ -37,6 +40,8 @@ export default function SettingsTab({
   onToggleSlot20,
   onToggleSlot20Date,
   onSaveSlot20Notice,
+  onTogglePausa,
+  onSavePausaReturn,
   onSaveMercadoPago,
   onSaveDepositSettings,
 }) {
@@ -136,6 +141,14 @@ export default function SettingsTab({
   return (
     <div className={`${styles.configCard} glass-card`}>
       <h2 className={styles.sectionTitle}>Ajustes de Turnos</h2>
+
+      <PausaSection
+        enabled={pausaEnabled}
+        returnText={pausaReturn}
+        actionLoading={actionLoading}
+        onToggle={onTogglePausa}
+        onSaveReturnText={onSavePausaReturn}
+      />
       
       <div className={styles.configItem}>
         <div className={styles.configLabel}>

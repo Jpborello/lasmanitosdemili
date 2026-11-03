@@ -51,6 +51,8 @@ export default function AdminDashboard() {
   const [slot20Enabled, setSlot20Enabled] = useState(false);
   const [slot20Dates, setSlot20Dates] = useState([]);
   const [slot20Notice, setSlot20Notice] = useState('');
+  const [pausaEnabled, setPausaEnabled] = useState(false);
+  const [pausaReturn, setPausaReturn] = useState('');
   const [mpEnabled, setMpEnabled] = useState(false);
   const [mpAccessToken, setMpAccessToken] = useState('');
   const [mpPublicKey, setMpPublicKey] = useState('');
@@ -128,6 +130,12 @@ export default function AdminDashboard() {
         }
         if (data.slot_20_notice !== undefined) {
           setSlot20Notice(data.slot_20_notice);
+        }
+        if (data.maintenance_enabled !== undefined) {
+          setPausaEnabled(data.maintenance_enabled);
+        }
+        if (data.maintenance_return !== undefined) {
+          setPausaReturn(data.maintenance_return);
         }
         if (data.mp_enabled !== undefined) {
           setMpEnabled(data.mp_enabled);
@@ -684,6 +692,57 @@ export default function AdminDashboard() {
     }
   };
 
+  // Pausar la web: las clientas ven el cartel y los turnos se toman por WhatsApp
+  const handleTogglePausa = async () => {
+    const nextVal = !pausaEnabled;
+    if (nextVal && !confirm('¿Pausar la web?\n\nLas clientas van a ver un cartel de "volvemos pronto" y solo van a poder pedir turno por WhatsApp. Los turnos ya agendados no se tocan.')) {
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ maintenance_enabled: nextVal }),
+      });
+
+      if (res.ok) {
+        setPausaEnabled(nextVal);
+      } else {
+        alert('No se pudo guardar la configuración.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión al actualizar.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Pausar la web: texto opcional de cuándo vuelve (ej. "Volvemos el 1 de diciembre")
+  const handleSavePausaReturn = async (text) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ maintenance_return: text }),
+      });
+
+      if (res.ok) {
+        setPausaReturn(text);
+      } else {
+        alert('No se pudo guardar el texto.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión al actualizar.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Guardar configuración de Mercado Pago
   const handleSaveMercadoPago = async (config) => {
     setActionLoading(true);
@@ -1022,6 +1081,8 @@ export default function AdminDashboard() {
             slot20Enabled={slot20Enabled}
             slot20Dates={slot20Dates}
             slot20Notice={slot20Notice}
+            pausaEnabled={pausaEnabled}
+            pausaReturn={pausaReturn}
             mpEnabled={mpEnabled}
             mpAccessToken={mpAccessToken}
             mpPublicKey={mpPublicKey}
@@ -1042,6 +1103,8 @@ export default function AdminDashboard() {
             onToggleSlot20={handleToggleSlot20}
             onToggleSlot20Date={handleToggleSlot20Date}
             onSaveSlot20Notice={handleSaveSlot20Notice}
+            onTogglePausa={handleTogglePausa}
+            onSavePausaReturn={handleSavePausaReturn}
             onSaveMercadoPago={handleSaveMercadoPago}
             onSaveDepositSettings={handleSaveDepositSettings}
           />

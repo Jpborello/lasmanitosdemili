@@ -23,6 +23,8 @@ export async function GET() {
       slot_20_enabled: false,
       slot_20_dates: '',
       slot_20_notice: '',
+      maintenance_enabled: false,
+      maintenance_return: '',
       mp_enabled: false,
       mp_public_key: '',
       mp_deposit_amount: 2000,
@@ -50,6 +52,10 @@ export async function GET() {
         settings.slot_20_dates = row.value;
       } else if (row.key === 'slot_20_notice') {
         settings.slot_20_notice = row.value;
+      } else if (row.key === 'maintenance_enabled') {
+        settings.maintenance_enabled = row.value === 'true';
+      } else if (row.key === 'maintenance_return') {
+        settings.maintenance_return = row.value;
       } else if (row.key === 'mp_enabled') {
         settings.mp_enabled = row.value === 'true';
       } else if (row.key === 'mp_public_key') {
@@ -93,6 +99,8 @@ export async function POST(request) {
       slot_20_enabled,
       slot_20_dates,
       slot_20_notice,
+      maintenance_enabled,
+      maintenance_return,
       mp_enabled,
       mp_access_token,
       mp_public_key,
@@ -166,6 +174,20 @@ export async function POST(request) {
       });
     }
 
+    if (maintenance_enabled !== undefined) {
+      await db.execute({
+        sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        args: ['maintenance_enabled', maintenance_enabled ? 'true' : 'false'],
+      });
+    }
+
+    if (maintenance_return !== undefined) {
+      await db.execute({
+        sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        args: ['maintenance_return', maintenance_return.toString().slice(0, 120)],
+      });
+    }
+
     if (mp_enabled !== undefined) {
       await db.execute({
         sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
@@ -220,6 +242,8 @@ export async function POST(request) {
       slot_20_enabled: false,
       slot_20_dates: '',
       slot_20_notice: '',
+      maintenance_enabled: false,
+      maintenance_return: '',
       mp_enabled: false,
       mp_public_key: '',
       mp_deposit_amount: 2000,
@@ -246,6 +270,10 @@ export async function POST(request) {
         settings.slot_20_dates = row.value;
       } else if (row.key === 'slot_20_notice') {
         settings.slot_20_notice = row.value;
+      } else if (row.key === 'maintenance_enabled') {
+        settings.maintenance_enabled = row.value === 'true';
+      } else if (row.key === 'maintenance_return') {
+        settings.maintenance_return = row.value;
       } else if (row.key === 'mp_enabled') {
         settings.mp_enabled = row.value === 'true';
       } else if (row.key === 'mp_public_key') {
