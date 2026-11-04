@@ -57,13 +57,6 @@ export default function BookingCalendar() {
   const [trustStatus, setTrustStatus] = useState('trusted');
   const depositAmount = liveSettings?.restricted_deposit_amount ?? 5000;
   const depositInstructions = liveSettings?.deposit_payment_instructions ?? '';
-
-  // Si Mili pausa la web con la página abierta, recargamos para mostrar el cartel
-  useEffect(() => {
-    if (liveSettings?.maintenance_enabled) {
-      window.location.reload();
-    }
-  }, [liveSettings]);
   const [showRestrictedModal, setShowRestrictedModal] = useState(false);
   const [depositAcknowledged, setDepositAcknowledged] = useState(false);
 

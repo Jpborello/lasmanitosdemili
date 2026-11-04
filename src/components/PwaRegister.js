@@ -48,10 +48,8 @@ export default function PwaRegister() {
 
     // 3. Check dismissal memory (7 days snooze)
     const dismissedTime = localStorage.getItem('pwa_prompt_dismissed');
-    // Con la web en pausa no invitamos a instalar la app "para reservar"
-    const isPaused = !!document.querySelector('[data-pausa]');
-    const isDismissedRecent = isPaused ||
-      (dismissedTime && Date.now() - parseInt(dismissedTime, 10) < 7 * 24 * 60 * 60 * 1000);
+    const isDismissedRecent =
+      dismissedTime && Date.now() - parseInt(dismissedTime, 10) < 7 * 24 * 60 * 60 * 1000;
 
     // 4. iOS Detection
     const userAgent = window.navigator.userAgent || '';

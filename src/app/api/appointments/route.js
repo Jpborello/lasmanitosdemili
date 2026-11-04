@@ -127,7 +127,6 @@ export async function POST(request) {
       extra_slots: '',
       slot_20_enabled: false,
       slot_20_dates: '',
-      maintenance_enabled: false,
       mp_enabled: false,
       mp_access_token: '',
       mp_deposit_amount: 2000,
@@ -151,8 +150,6 @@ export async function POST(request) {
         settings.slot_20_enabled = row.value === 'true';
       } else if (row.key === 'slot_20_dates') {
         settings.slot_20_dates = row.value;
-      } else if (row.key === 'maintenance_enabled') {
-        settings.maintenance_enabled = row.value === 'true';
       } else if (row.key === 'mp_enabled') {
         settings.mp_enabled = row.value === 'true';
       } else if (row.key === 'mp_access_token') {
@@ -164,11 +161,6 @@ export async function POST(request) {
       } else if (row.key === 'deposit_payment_instructions') {
         settings.deposit_payment_instructions = row.value;
       }
-    }
-
-    // Web en pausa: no se toman reservas online, solo por WhatsApp
-    if (settings.maintenance_enabled) {
-      return NextResponse.json({ error: 'Por el momento los turnos se toman únicamente por WhatsApp' }, { status: 503 });
     }
 
     // 1. Validar si la fecha del turno está en la lista de fechas bloqueadas

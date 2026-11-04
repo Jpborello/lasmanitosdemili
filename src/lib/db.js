@@ -105,14 +105,6 @@ export async function getDb() {
         INSERT OR IGNORE INTO settings (key, value) VALUES ('slot_20_notice', '')
       `);
 
-      // Web en pausa: las clientas ven un cartel y los turnos se toman por WhatsApp
-      await db.execute(`
-        INSERT OR IGNORE INTO settings (key, value) VALUES ('maintenance_enabled', 'false')
-      `);
-      await db.execute(`
-        INSERT OR IGNORE INTO settings (key, value) VALUES ('maintenance_return', '')
-      `);
-
       // Crear tabla de reviews
       await db.execute(`
         CREATE TABLE IF NOT EXISTS reviews (
