@@ -1023,14 +1023,15 @@ export default function Landing() {
             </a>
           </div>
           <p style={{ marginTop: '8px', fontSize: '0.8rem', opacity: 0.8 }}>
-            Proyecto creado por{' '}
+            Desarrollo web y turnos online por{' '}
             <a 
               href="https://www.neo-core-sys.com.ar/" 
               target="_blank" 
-              rel="noopener noreferrer" 
+              rel="noopener" 
+              title="Desarrollo de Software a Medida en Rosario"
               style={{ color: 'var(--accent-gold)', fontWeight: 600, textDecoration: 'none' }}
             >
-              neo core sys
+              Neo Core Sys · Software a Medida
             </a>
           </p>
         </div>
