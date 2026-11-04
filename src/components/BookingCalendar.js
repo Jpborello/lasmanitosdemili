@@ -461,9 +461,17 @@ export default function BookingCalendar() {
           Te esperamos en el local. Si necesitas cancelar o modificar el turno, por favor contáctanos directamente.
         </p>
 
-        <button className="btn-primary" onClick={handleReset} style={{ marginTop: '10px' }}>
-          Reservar otro turno
-        </button>
+        <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <a href="/mis-turnos" className="btn-primary" style={{ textDecoration: 'none' }}>
+            Ver mis turnos
+          </a>
+          <button className="btn-secondary" onClick={handleReset}>
+            Reservar otro turno
+          </button>
+        </div>
+        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '10px' }}>
+          Cuando quieras, entrá a <strong>Mis Turnos</strong> (arriba de todo) con tu celular para ver tus reservas.
+        </p>
       </div>
     );
   }

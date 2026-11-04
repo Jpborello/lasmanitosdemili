@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, Clock, MapPin, ShieldCheck, Heart, ChevronDown, ChevronLeft, ChevronRight, MessageCircle, Lock } from 'lucide-react';
+import { Sparkles, Clock, MapPin, ShieldCheck, Heart, ChevronDown, ChevronLeft, ChevronRight, MessageCircle, Lock, CalendarCheck } from 'lucide-react';
 import styles from '@/styles/landing.module.css';
 import BookingCalendar from './BookingCalendar';
 import Turno20Aviso from './Turno20Aviso';
@@ -445,6 +445,7 @@ export default function Landing() {
       {/* Header */}
       <header className={`${styles.header} ${isHeaderScrolled ? styles.headerScrolled : ''}`}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <div className={styles.headerBrand}>
           <div
             className={styles.logoContainer}
             onClick={handleLogoClick}
@@ -461,6 +462,11 @@ export default function Landing() {
           >
             <img src="/logo.jpg" alt="Las Manitos de Mili - Manicuría Rosario" className={styles.logoImg} />
           </div>
+          {/* En el celu el menú se desliza de costado: Mis Turnos va fijo al lado del logo para que se vea siempre */}
+          <a href="/mis-turnos" className={`${styles.misTurnosBtn} ${styles.misTurnosBtnMobile}`}>
+            <CalendarCheck size={16} /> Mis Turnos
+          </a>
+          </div>
           <nav className={styles.nav}>
             <a href="#inicio" className={styles.navLink}>Inicio</a>
             <a href="#sobre-mi" className={styles.navLink}>Sobre Mí</a>
@@ -469,7 +475,9 @@ export default function Landing() {
             <a href="#faq" className={styles.navLink}>Preguntas</a>
             <a href="#ubicacion" className={styles.navLink}>Estudio</a>
             <a href="#turnos" className={styles.navLink}>Reservar</a>
-            <a href="/mis-turnos" className={styles.navLink}>Mis Turnos</a>
+            <a href="/mis-turnos" className={`${styles.misTurnosBtn} ${styles.misTurnosBtnDesktop}`}>
+              <CalendarCheck size={15} /> Mis Turnos
+            </a>
             {isAdmin ? (
               <a
                 href="/admin"
@@ -517,6 +525,11 @@ export default function Landing() {
             </a>
             <a href="#servicios" className="btn-secondary">
               Ver Servicios
+            </a>
+          </div>
+          <div className={`${styles.heroFadeUp} ${styles.heroFadeUpDelay3}`}>
+            <a href="/mis-turnos" className={styles.heroMisTurnos}>
+              <CalendarCheck size={16} /> ¿Ya reservaste? <strong>Ver mis turnos</strong>
             </a>
           </div>
         </div>

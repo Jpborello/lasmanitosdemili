@@ -49,6 +49,64 @@
   transform: scale(1.05);
 }
 
+/* Logo + botón Mis Turnos (en el celu quedan en la misma fila) */
+.headerBrand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Botón Mis Turnos: siempre a la vista, no perdido entre los links del menú */
+.misTurnosBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-dark);
+  background-color: #ffb3c6;
+  padding: 8px 16px;
+  border-radius: 20px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(255, 158, 187, 0.35);
+  transition: var(--transition-smooth);
+}
+
+.misTurnosBtn:hover {
+  background-color: #ff9ebb;
+  transform: translateY(-1px);
+}
+
+.misTurnosBtnMobile {
+  display: none;
+}
+
+/* Link a Mis Turnos en la portada, debajo de los botones */
+.heroMisTurnos {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 10px 18px;
+  border-radius: 50px;
+  border: 1px dashed var(--accent-rose-strong);
+  background-color: rgba(255, 255, 255, 0.7);
+  color: var(--text-dark);
+  font-size: 0.9rem;
+  transition: var(--transition-smooth);
+}
+
+.heroMisTurnos strong {
+  color: var(--accent-rose-strong);
+}
+
+.heroMisTurnos:hover {
+  background-color: var(--white);
+  transform: translateY(-1px);
+}
+
 .navLockLink {
   display: inline-flex;
   align-items: center;
@@ -647,6 +705,19 @@
   }
   .navLink {
     font-size: 0.8rem;
+  }
+  .headerBrand {
+    width: 100%;
+    justify-content: space-between;
+    padding: 0 15px;
+  }
+  .misTurnosBtnMobile {
+    display: inline-flex;
+    font-size: 0.85rem;
+    padding: 10px 16px;
+  }
+  .misTurnosBtnDesktop {
+    display: none;
   }
   .navAdminLink {
     padding: 6px 12px;

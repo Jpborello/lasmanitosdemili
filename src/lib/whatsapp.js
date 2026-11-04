@@ -124,6 +124,9 @@ export async function sendWhatsAppMessage({ to, text }) {
   }
 }
 
+// Link a Mis Turnos que va en los mensajes a las clientas
+const MIS_TURNOS_LINE = '📲 *Mis turnos:* podés ver tus reservas cuando quieras en https://lasmanitosdemili.com.ar/mis-turnos';
+
 /**
  * 1. Notificar a Mili cuando una clienta agenda un turno
  */
@@ -155,7 +158,9 @@ Muchísimas gracias por confiar en mí y reservar tu turno en *Las Manitos de Mi
 ⏰ *Hora:* ${appointment.appointment_time} hs
 ✨ *Servicio:* ${appointment.service}
 
-¡Te espero con los brazos abiertos! Si tenés alguna duda o necesitás reprogramar, podés responder a este mensaje. 😊`;
+¡Te espero con los brazos abiertos! Si tenés alguna duda o necesitás reprogramar, podés responder a este mensaje. 😊
+
+${MIS_TURNOS_LINE}`;
 
   return await sendWhatsAppMessage({ to: appointment.client_phone, text: message });
 }
@@ -168,7 +173,9 @@ export async function sendClientReminder(appointment) {
 
 Te recuerdo que mañana *${appointment.appointment_date}* a las *${appointment.appointment_time} hs* tenés tu turno reservado en *Las Manitos de Mili* 💅 para *${appointment.service}*.
 
-Por favor, avísame con anticipación si tenés algún inconveniente. ¡Nos vemos mañana! 🥰`;
+Por favor, avísame con anticipación si tenés algún inconveniente. ¡Nos vemos mañana! 🥰
+
+${MIS_TURNOS_LINE}`;
 
   return await sendWhatsAppMessage({ to: appointment.client_phone, text: message });
 }
@@ -207,7 +214,9 @@ Tu turno para el *${appointment.appointment_date}* a las *${appointment.appointm
 
 Por motivos de tiempo y valorando mi trabajo y el tiempo de las demás clientas, para las reservas se debe realizar un depósito de $${depositAmount}, el cual será reintegrado al finalizar el trabajo. Si el turno no se cancela con 24 horas de anticipación, la seña no será devuelta y se procederá a la inmediata expulsión del salón. Espero sepas entender, ¡muchas gracias! 💖${instructionsBlock}
 
-Ni bien reciba tu pago, te confirmo el turno por acá. 😊`;
+Ni bien reciba tu pago, te confirmo el turno por acá. 😊
+
+${MIS_TURNOS_LINE}`;
 
   return await sendWhatsAppMessage({ to: appointment.client_phone, text: message });
 }
