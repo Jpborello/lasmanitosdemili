@@ -23,6 +23,7 @@ export async function GET() {
       slot_20_enabled: false,
       slot_20_dates: '',
       slot_20_notice: '',
+      sunday_slots: '',
       mp_enabled: false,
       mp_public_key: '',
       mp_deposit_amount: 2000,
@@ -50,6 +51,8 @@ export async function GET() {
         settings.slot_20_dates = row.value;
       } else if (row.key === 'slot_20_notice') {
         settings.slot_20_notice = row.value;
+      } else if (row.key === 'sunday_slots') {
+        settings.sunday_slots = row.value;
       } else if (row.key === 'mp_enabled') {
         settings.mp_enabled = row.value === 'true';
       } else if (row.key === 'mp_public_key') {
@@ -93,6 +96,7 @@ export async function POST(request) {
       slot_20_enabled,
       slot_20_dates,
       slot_20_notice,
+      sunday_slots,
       mp_enabled,
       mp_access_token,
       mp_public_key,
@@ -166,6 +170,13 @@ export async function POST(request) {
       });
     }
 
+    if (sunday_slots !== undefined) {
+      await db.execute({
+        sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+        args: ['sunday_slots', sunday_slots.toString()],
+      });
+    }
+
     if (mp_enabled !== undefined) {
       await db.execute({
         sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
@@ -220,6 +231,7 @@ export async function POST(request) {
       slot_20_enabled: false,
       slot_20_dates: '',
       slot_20_notice: '',
+      sunday_slots: '',
       mp_enabled: false,
       mp_public_key: '',
       mp_deposit_amount: 2000,
@@ -246,6 +258,8 @@ export async function POST(request) {
         settings.slot_20_dates = row.value;
       } else if (row.key === 'slot_20_notice') {
         settings.slot_20_notice = row.value;
+      } else if (row.key === 'sunday_slots') {
+        settings.sunday_slots = row.value;
       } else if (row.key === 'mp_enabled') {
         settings.mp_enabled = row.value === 'true';
       } else if (row.key === 'mp_public_key') {

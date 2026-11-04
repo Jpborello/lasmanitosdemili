@@ -9,6 +9,7 @@ import { fireConfetti } from '@/lib/confetti';
 import { normalizePhone } from '@/lib/phone';
 import { useLiveSettings } from '@/hooks/useLiveSettings';
 import { TURNO_20_TIME, parseTurno20Dates, upcomingTurno20Dates } from '@/lib/turno20';
+import { parseSundaySlots, sundayTimesFor } from '@/lib/domingos';
 
 const splitList = (value) => (value || '').split(',').map(s => s.trim()).filter(Boolean);
 
@@ -43,6 +44,8 @@ export default function BookingCalendar() {
   const blockedMonths = splitList(liveSettings?.blocked_months); // formato 'YYYY-MM'
   const blockedSlots = splitList(liveSettings?.blocked_slots);
   const extraSlots = splitList(liveSettings?.extra_slots);
+  // Domingos especiales que habilitó Mili, con sus horarios (formato fecha_hora)
+  const sundaySlots = parseSundaySlots(liveSettings?.sunday_slots);
   // Días con turno especial de 20hs (solo si Mili lo tiene prendido)
   const turno20Dates = upcomingTurno20Dates(
     liveSettings?.slot_20_enabled,
@@ -195,7 +198,8 @@ export default function BookingCalendar() {
       const dateStr = `${yearNum}-${monthNum}-${dayNumStr}`;
       
       const isBlockedDate = blockedDates.includes(dateStr);
-      const isBlockedWeekday = blockedWeekdays.includes(dateObj.getDay());
+      const isSpecialSunday = dateObj.getDay() === 0 && sundayTimesFor(sundaySlots, dateStr).length > 0;
+      const isBlockedWeekday = blockedWeekdays.includes(dateObj.getDay()) && !isSpecialSunday;
       const isBlockedMonth = blockedMonths.includes(dateStr.slice(0, 7));
 
       days.push({
@@ -205,6 +209,7 @@ export default function BookingCalendar() {
         isToday: dateCopy.getTime() === today.getTime(),
         isDisabled: dateCopy.getTime() < today.getTime() || isBlockedWeekday || isBlockedDate || isBlockedMonth,
         isSunday: dateObj.getDay() === 0,
+        isSpecialSunday,
       });
     }
 
@@ -229,7 +234,6 @@ export default function BookingCalendar() {
     if (!selectedDate) return [];
     
     const dayOfWeek = selectedDate.getDay(); // 0 = Dom, 6 = Sáb, 1-5 = Lun-Vie
-    if (dayOfWeek === 0) return []; // Domingos cerrado
 
     const yearNum = selectedDate.getFullYear();
     const monthNum = String(selectedDate.getMonth() + 1).padStart(2, '0');
@@ -237,7 +241,10 @@ export default function BookingCalendar() {
     const dateStr = `${yearNum}-${monthNum}-${dayNumStr}`;
 
     let times = [];
-    if (dayOfWeek === 6) {
+    if (dayOfWeek === 0) {
+      // Domingos: cerrados, salvo los domingos especiales con los horarios que eligió Mili
+      times = sundayTimesFor(sundaySlots, dateStr);
+    } else if (dayOfWeek === 6) {
       // Sábados: 8, 10, 12, 14:30, 16, 18
       times = ['08:00', '10:00', '12:00', '14:30', '16:00', '18:00'];
     } else {
@@ -588,6 +595,7 @@ export default function BookingCalendar() {
               dayClasses += ` ${day.isSunday ? styles.sunday : styles.disabled}`;
             }
             if (day.isToday) dayClasses += ` ${styles.today}`;
+            if (day.isCurrentMonth && day.isSpecialSunday && !day.isDisabled) dayClasses += ` ${styles.specialSunday}`;
             if (isSelected) dayClasses += ` ${styles.selected}`;
 
             return (

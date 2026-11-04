@@ -109,6 +109,23 @@
   opacity: 0.4;
 }
 
+/* Domingo especial habilitado por Mili: puntito para que se note */
+.specialSunday {
+  position: relative;
+}
+
+.specialSunday::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-rose-strong);
+}
+
 /* Slots and Form Card */
 .detailsCard {
   padding: 30px;

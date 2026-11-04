@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import styles from '@/styles/admin.module.css';
 import Turno20Section from './Turno20Section';
+import DomingosSection from './DomingosSection';
 
 import { useEffect } from 'react';
 
@@ -17,6 +18,7 @@ export default function SettingsTab({
   slot20Enabled,
   slot20Dates,
   slot20Notice,
+  sundaySlots,
   mpEnabled,
   mpAccessToken,
   mpPublicKey,
@@ -37,6 +39,7 @@ export default function SettingsTab({
   onToggleSlot20,
   onToggleSlot20Date,
   onSaveSlot20Notice,
+  onSetSundayTimes,
   onSaveMercadoPago,
   onSaveDepositSettings,
 }) {
@@ -160,7 +163,7 @@ export default function SettingsTab({
         <ul style={{ fontSize: '0.85rem', color: 'var(--text-muted)', listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <li>• Lunes a Viernes: 8:00, 10:00, 14:30, 16:00 y {enable18Weekday ? '18:00' : '18:00 (Inactivo)'} hs.</li>
           <li>• Sábados: 8:00, 10:00, 12:00, 14:30, 16:00 y 18:00 hs.</li>
-          <li>• Domingos: Cerrado.</li>
+          <li>• Domingos: {sundaySlots.length > 0 ? 'cerrado, salvo los domingos especiales marcados abajo.' : 'Cerrado.'}</li>
           {slot20Enabled && <li>• 20:00 hs: solo los días marcados abajo.</li>}
         </ul>
       </div>
@@ -173,6 +176,12 @@ export default function SettingsTab({
         onToggle={onToggleSlot20}
         onToggleDate={onToggleSlot20Date}
         onSaveNotice={onSaveSlot20Notice}
+      />
+
+      <DomingosSection
+        slots={sundaySlots}
+        actionLoading={actionLoading}
+        onSetTimes={onSetSundayTimes}
       />
 
       {/* Días Habilitados */}

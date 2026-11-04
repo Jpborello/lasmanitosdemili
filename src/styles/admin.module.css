@@ -328,6 +328,40 @@
   font-weight: 600;
 }
 
+/* Domingos especiales: botones de horario */
+.timeChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.timeChip {
+  padding: 5px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--white);
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: inherit;
+}
+
+.timeChip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.timeChipOn {
+  background: var(--accent-rose);
+  border-color: var(--accent-rose);
+  color: var(--white);
+  font-weight: 600;
+}
+
+.t20DaySelected {
+  outline: 2px solid var(--text-dark);
+  outline-offset: 1px;
+}
+
 /* Bookings list panel */
 .bookingsCard {
   padding: 30px;

@@ -9,6 +9,7 @@ import styles from '@/styles/admin.module.css';
 import AppointmentsTab from '@/components/admin/AppointmentsTab';
 import SettingsTab from '@/components/admin/SettingsTab';
 import { parseTurno20Dates } from '@/lib/turno20';
+import { parseSundaySlots } from '@/lib/domingos';
 import ReviewsTab from '@/components/admin/ReviewsTab';
 import MetricsTab from '@/components/admin/MetricsTab';
 import ServicesTab from '@/components/admin/ServicesTab';
@@ -51,6 +52,7 @@ export default function AdminDashboard() {
   const [slot20Enabled, setSlot20Enabled] = useState(false);
   const [slot20Dates, setSlot20Dates] = useState([]);
   const [slot20Notice, setSlot20Notice] = useState('');
+  const [sundaySlots, setSundaySlots] = useState([]);
   const [mpEnabled, setMpEnabled] = useState(false);
   const [mpAccessToken, setMpAccessToken] = useState('');
   const [mpPublicKey, setMpPublicKey] = useState('');
@@ -128,6 +130,9 @@ export default function AdminDashboard() {
         }
         if (data.slot_20_notice !== undefined) {
           setSlot20Notice(data.slot_20_notice);
+        }
+        if (data.sunday_slots !== undefined) {
+          setSundaySlots(parseSundaySlots(data.sunday_slots));
         }
         if (data.mp_enabled !== undefined) {
           setMpEnabled(data.mp_enabled);
@@ -684,6 +689,33 @@ export default function AdminDashboard() {
     }
   };
 
+  // Domingos especiales: reemplaza los horarios de un domingo (lista vacía = domingo cerrado)
+  const handleSetSundayTimes = async (dateStr, times) => {
+    setActionLoading(true);
+    try {
+      const nextSlots = [
+        ...sundaySlots.filter(s => !s.startsWith(`${dateStr}_`)),
+        ...times.map(t => `${dateStr}_${t}`),
+      ].sort();
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sunday_slots: nextSlots.join(',') }),
+      });
+
+      if (res.ok) {
+        setSundaySlots(nextSlots);
+      } else {
+        alert('No se pudo guardar el domingo.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión al actualizar.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Guardar configuración de Mercado Pago
   const handleSaveMercadoPago = async (config) => {
     setActionLoading(true);
@@ -1022,6 +1054,7 @@ export default function AdminDashboard() {
             slot20Enabled={slot20Enabled}
             slot20Dates={slot20Dates}
             slot20Notice={slot20Notice}
+            sundaySlots={sundaySlots}
             mpEnabled={mpEnabled}
             mpAccessToken={mpAccessToken}
             mpPublicKey={mpPublicKey}
@@ -1042,6 +1075,7 @@ export default function AdminDashboard() {
             onToggleSlot20={handleToggleSlot20}
             onToggleSlot20Date={handleToggleSlot20Date}
             onSaveSlot20Notice={handleSaveSlot20Notice}
+            onSetSundayTimes={handleSetSundayTimes}
             onSaveMercadoPago={handleSaveMercadoPago}
             onSaveDepositSettings={handleSaveDepositSettings}
           />

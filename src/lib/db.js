@@ -105,6 +105,11 @@ export async function getDb() {
         INSERT OR IGNORE INTO settings (key, value) VALUES ('slot_20_notice', '')
       `);
 
+      // Domingos especiales: domingos puntuales habilitados con sus horarios (formato fecha_hora)
+      await db.execute(`
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('sunday_slots', '')
+      `);
+
       // Crear tabla de reviews
       await db.execute(`
         CREATE TABLE IF NOT EXISTS reviews (

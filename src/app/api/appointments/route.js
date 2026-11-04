@@ -8,6 +8,7 @@ import { isAdminAuthenticated } from '@/lib/auth';
 import { MILI_WHATSAPP_NUMBER } from '@/lib/constants';
 import { normalizePhone } from '@/lib/phone';
 import { TURNO_20_TIME, parseTurno20Dates } from '@/lib/turno20';
+import { parseSundaySlots } from '@/lib/domingos';
 
 // GET: Obtener turnos
 export async function GET(request) {
@@ -127,6 +128,7 @@ export async function POST(request) {
       extra_slots: '',
       slot_20_enabled: false,
       slot_20_dates: '',
+      sunday_slots: '',
       mp_enabled: false,
       mp_access_token: '',
       mp_deposit_amount: 2000,
@@ -150,6 +152,8 @@ export async function POST(request) {
         settings.slot_20_enabled = row.value === 'true';
       } else if (row.key === 'slot_20_dates') {
         settings.slot_20_dates = row.value;
+      } else if (row.key === 'sunday_slots') {
+        settings.sunday_slots = row.value;
       } else if (row.key === 'mp_enabled') {
         settings.mp_enabled = row.value === 'true';
       } else if (row.key === 'mp_access_token') {
@@ -176,9 +180,13 @@ export async function POST(request) {
       return NextResponse.json({ error: 'El mes seleccionado no está disponible para reservar turnos por el momento' }, { status: 400 });
     }
 
-    // 2. Validar si el día de la semana está bloqueado
+    // Domingo especial: Mili habilitó este domingo puntual con este horario
+    const isSundaySlot =
+      dayOfWeek === 0 && parseSundaySlots(settings.sunday_slots).includes(`${appointment_date}_${appointment_time}`);
+
+    // 2. Validar si el día de la semana está bloqueado (salvo un domingo especial habilitado)
     const blockedWeekdaysArray = settings.blocked_weekdays.split(',').map(d => parseInt(d.trim(), 10)).filter(n => !isNaN(n));
-    if (blockedWeekdaysArray.includes(dayOfWeek)) {
+    if (blockedWeekdaysArray.includes(dayOfWeek) && !isSundaySlot) {
       const dayNames = ['Domingos', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábados'];
       return NextResponse.json({ error: `Los días ${dayNames[dayOfWeek]} no están disponibles para reservar` }, { status: 400 });
     }
@@ -204,7 +212,12 @@ export async function POST(request) {
         settings.slot_20_enabled &&
         parseTurno20Dates(settings.slot_20_dates).includes(appointment_date));
 
-    if (dayOfWeek === 6) {
+    if (dayOfWeek === 0) {
+      // Domingo: solo los horarios que Mili habilitó para ese domingo
+      if (!isSundaySlot && !isExtraSlotForThisDate) {
+        return NextResponse.json({ error: 'Horario inválido para este domingo' }, { status: 400 });
+      }
+    } else if (dayOfWeek === 6) {
       // Sábado
       if (!validSaturdayTimes.includes(appointment_time) && !isExtraSlotForThisDate) {
         return NextResponse.json({ error: 'Horario inválido para días sábados' }, { status: 400 });
