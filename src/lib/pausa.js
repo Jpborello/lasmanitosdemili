@@ -3,4 +3,4 @@
 // "no disponible" con el WhatsApp para turnos, y todas las APIs responden 503
 // (incluido el cron de recordatorios). No se borra ningún dato.
 // Para volver a habilitar todo: poner false, commitear y pushear.
-export const SITE_PAUSED = true;
+export const SITE_PAUSED = false;
