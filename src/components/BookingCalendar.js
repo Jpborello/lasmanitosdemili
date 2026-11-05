@@ -687,6 +687,14 @@ export default function BookingCalendar() {
                 })}
               </div>
             )}
+            {!loadingSlots && slots.length > 0 && slots.every(time => bookedTimes.includes(time)) && (
+              <p
+                className="animate-fade-in"
+                style={{ marginTop: '12px', padding: '10px 14px', backgroundColor: 'rgba(220, 174, 150, 0.15)', border: '1px solid rgba(220, 174, 150, 0.4)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', lineHeight: 1.5 }}
+              >
+                Este día ya está completo 💅 Probá eligiendo otro día en el calendario.
+              </p>
+            )}
           </div>
         )}
 
