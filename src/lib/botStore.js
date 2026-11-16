@@ -42,6 +42,13 @@ export async function getBotDb() {
         paused_until TEXT
       )
     `);
+    // Cuándo Mili reactivó el bot en ese chat con "#bot" (los mensajes suyos anteriores
+    // ya no cuentan para frenar al bot)
+    try {
+      await db.execute('ALTER TABLE bot_chat_state ADD COLUMN resumed_at TEXT');
+    } catch {
+      // la columna ya existía
+    }
     ready = true;
   }
   return db;
@@ -115,9 +122,19 @@ export async function pauseChat(chat, hours) {
 export async function resumeChat(chat) {
   const db = await getBotDb();
   await db.execute({
-    sql: 'DELETE FROM bot_chat_state WHERE chat = ?',
+    sql: `INSERT INTO bot_chat_state (chat, paused_until, resumed_at) VALUES (?, NULL, ?)
+          ON CONFLICT(chat) DO UPDATE SET paused_until = NULL, resumed_at = excluded.resumed_at`,
+    args: [chat, new Date().toISOString()],
+  });
+}
+
+export async function getResumedAt(chat) {
+  const db = await getBotDb();
+  const result = await db.execute({
+    sql: 'SELECT resumed_at FROM bot_chat_state WHERE chat = ?',
     args: [chat],
   });
+  return result.rows[0]?.resumed_at || null;
 }
 
 export async function isChatPaused(chat) {

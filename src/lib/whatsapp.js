@@ -49,6 +49,7 @@ function evolutionConfig() {
  */
 export async function markEvolutionRead(remoteJid, id) {
   const { baseUrl, apiKey, instance } = evolutionConfig();
+  if (process.env.EVOLUTION_DRY_RUN === 'true') return;
   try {
     await fetch(`${baseUrl}/chat/markMessageAsRead/${instance}`, {
       method: 'POST',
@@ -61,11 +62,52 @@ export async function markEvolutionRead(remoteJid, id) {
 }
 
 /**
+ * ¿Mili escribió a mano en este chat en las últimas `hours` horas?
+ * Mira el historial real de WhatsApp en Evolution (incluye lo que escribió antes de que
+ * existiera el bot o desde otro dispositivo). Los mensajes que mandó el sistema no cuentan.
+ * Si Evolution no responde, por las dudas se asume que sí (mejor no meterse).
+ */
+export async function hasRecentManualReply(jids, hours) {
+  const { baseUrl, apiKey, instance } = evolutionConfig();
+  const since = Math.floor(Date.now() / 1000) - hours * 3600;
+  const { wasSentBySystem } = await import('./botStore');
+
+  try {
+    for (const remoteJid of [...new Set(jids.filter(Boolean))]) {
+      const response = await fetch(`${baseUrl}/chat/findMessages/${instance}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: apiKey },
+        body: JSON.stringify({ where: { key: { remoteJid, fromMe: true } }, limit: 20 }),
+      });
+      if (!response.ok) return true;
+      const data = await response.json();
+      const records = data?.messages?.records || (Array.isArray(data) ? data : []);
+      for (const msg of records) {
+        if (!msg?.key?.fromMe) continue;
+        if (Number(msg.messageTimestamp) < since) continue;
+        if (await wasSentBySystem(msg.key.id)) continue;
+        return true;
+      }
+    }
+    return false;
+  } catch (err) {
+    console.error('No se pudo revisar el historial del chat:', err);
+    return true;
+  }
+}
+
+/**
  * `typingMs`: si se pasa, Evolution muestra "escribiendo..." durante ese tiempo
  * antes de mandar el mensaje.
  */
 export async function sendEvolutionText(number, text, { typingMs } = {}) {
   const { baseUrl, apiKey, instance } = evolutionConfig();
+
+  // Modo prueba: lee de Evolution pero nunca manda mensajes
+  if (process.env.EVOLUTION_DRY_RUN === 'true') {
+    console.log(`[DRY RUN] No se envía a ${number} (escribiendo ${typingMs || 0} ms):\n${text}`);
+    return { success: true, data: { dryRun: true } };
+  }
 
   const body = { number, text };
   if (typingMs) body.delay = Math.round(typingMs);

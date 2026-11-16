@@ -1,8 +1,8 @@
 import { NextResponse, after } from 'next/server';
 import { generateReply, findRegisteredClient } from '@/lib/bot';
-import { sendEvolutionText, markEvolutionRead } from '@/lib/whatsapp';
+import { sendEvolutionText, markEvolutionRead, hasRecentManualReply } from '@/lib/whatsapp';
 import { sleep, randomBetween, pickOne, typingTimeFor, splitIntoMessages } from '@/lib/humanize';
-import { getBotDb, saveIncoming, wasSentBySystem, pauseChat, resumeChat, isChatPaused } from '@/lib/botStore';
+import { getBotDb, saveIncoming, wasSentBySystem, pauseChat, resumeChat, isChatPaused, getResumedAt } from '@/lib/botStore';
 
 // El bot llama a OpenRouter (a veces varias veces por las herramientas): damos margen.
 export const maxDuration = 60;
@@ -86,8 +86,12 @@ export async function POST(request) {
 
   for (const data of items) {
     const key = data?.key;
-    const chat = key?.remoteJid;
-    if (!chat || chat.endsWith('@g.us') || chat === 'status@broadcast' || chat.endsWith('@newsletter')) continue;
+    const rawJid = key?.remoteJid;
+    if (!rawJid || rawJid.endsWith('@g.us') || rawJid === 'status@broadcast' || rawJid.endsWith('@newsletter')) continue;
+
+    // Identificamos cada chat por el número (WhatsApp a veces manda @lid y a veces el número)
+    const phone = resolvePhone(key);
+    const chat = phone ? `${phone}@s.whatsapp.net` : rawJid;
 
     const text = extractText(data.message);
 
@@ -117,7 +121,6 @@ export async function POST(request) {
 
     if (!botEnabled) { skipped.push('bot apagado (BOT_ENABLED=false)'); continue; }
 
-    const phone = resolvePhone(key);
     if (!phone) { skipped.push('no se pudo obtener el número'); continue; }
 
     // Solo responde a clientas registradas en la web. Al resto le contesta Mili a mano.
@@ -126,11 +129,24 @@ export async function POST(request) {
 
     if (await isChatPaused(chat)) { skipped.push('chat pausado (Mili está respondiendo)'); continue; }
 
+    // Si Mili le escribió a mano a esta clienta hace poco (aunque haya sido antes de que
+    // existiera el bot, o desde su celu sin que nos llegara el aviso), el bot no se mete.
+    // Solo cuentan los mensajes posteriores al último "#bot" que haya mandado Mili.
+    const resumedAt = await getResumedAt(chat);
+    const manualWindowHours = resumedAt
+      ? Math.min(pauseHours, (Date.now() - new Date(resumedAt).getTime()) / 3600000)
+      : pauseHours;
+    if (await hasRecentManualReply([rawJid, chat], manualWindowHours)) {
+      await pauseChat(chat, pauseHours);
+      skipped.push('Mili le escribió a mano hace poco');
+      continue;
+    }
+
     if (!text) {
       if (isAudio(data.message)) {
         after(async () => {
           await sleep(randomBetween(4000, 9000));
-          await markEvolutionRead(chat, key.id);
+          await markEvolutionRead(rawJid, key.id);
           await sendEvolutionText(phone, pickOne([
             'Perdón, no puedo escuchar audios 🙈 ¿Me lo escribís así te ayudo? 💅',
             'Ay, los audios no los puedo escuchar 😅 ¿Me lo pasás por escrito?',
@@ -160,7 +176,7 @@ export async function POST(request) {
         if (await isChatPaused(chat)) return;
 
         // Como una persona: abre el chat (tildes azules) y lee un momento antes de contestar
-        await markEvolutionRead(chat, key.id);
+        await markEvolutionRead(rawJid, key.id);
         await sleep(randomBetween(1000, 3000));
 
         const reply = await generateReply({ chat, client, pushName: data.pushName, pauseHours });
