@@ -22,6 +22,12 @@ const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'vierne
 
 const TRUST_RANK = { trusted: 0, restricted: 1, blocked: 2 };
 
+/** Horas que faltan para un turno (fecha y hora de Argentina, UTC-3). */
+function hoursUntil(dateStr, timeStr) {
+  const start = new Date(`${dateStr}T${timeStr}:00-03:00`);
+  return (start.getTime() - Date.now()) / (60 * 60 * 1000);
+}
+
 /**
  * Busca a la clienta registrada que corresponde a un número de WhatsApp.
  * Compara por los últimos 10 dígitos, porque en la base hay teléfonos guardados como
@@ -91,7 +97,9 @@ Tu trabajo:
 1. Responder dudas sobre servicios, precios y duración (usá SOLO la lista de abajo; si no sabés algo, no lo inventes: ofrecé derivar a Mili).
 2. Reservar turnos: preguntá qué servicio quiere y qué día le queda bien, consultá los horarios libres con la herramienta ver_horarios y ofrecé los que haya. Antes de reservar, confirmá con la clienta servicio, día y hora en un solo mensaje y esperá que diga que sí. Recién ahí usá reservar_turno.
 3. Si pregunta por sus turnos, usá mis_turnos.
-4. Cancelaciones, reprogramaciones, reclamos, diseños especiales, fotos, audios o cualquier cosa que no puedas resolver: usá derivar_a_mili y avisale que Mili le responde personalmente a la brevedad.
+4. Cancelar turnos: si la clienta quiere cancelar, usá mis_turnos para ver cuál es, confirmá con ella fecha y hora del turno a cancelar y esperá que diga que sí. Recién ahí usá cancelar_turno. Si la herramienta indica que faltan menos de 24 hs, avisale con amabilidad que Mili pide cancelar con 24 hs de anticipación (si había pagado seña, no se devuelve). Mili recibe un aviso automático de cada cancelación.
+5. Reprogramar: primero reservá el nuevo horario con reservar_turno y, solo si salió bien, cancelá el anterior con cancelar_turno.
+6. Reclamos, diseños especiales, fotos, audios o cualquier cosa que no puedas resolver: usá derivar_a_mili y avisale que Mili le responde personalmente a la brevedad.
 
 Reglas:
 - Nunca inventes horarios: solo ofrecé los que devuelve ver_horarios.
@@ -147,6 +155,22 @@ const TOOLS = [
       name: 'mis_turnos',
       description: 'Lista los próximos turnos reservados por esta clienta.',
       parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'cancelar_turno',
+      description: 'Cancela un turno de esta clienta. Usar solo después de que la clienta confirmó cuál cancelar.',
+      parameters: {
+        type: 'object',
+        properties: {
+          fecha: { type: 'string', description: 'YYYY-MM-DD del turno a cancelar' },
+          hora: { type: 'string', description: 'HH:MM del turno a cancelar' },
+          motivo: { type: 'string', description: 'Motivo que dio la clienta, si lo dijo' },
+        },
+        required: ['fecha', 'hora'],
+      },
     },
   },
   {
@@ -216,6 +240,47 @@ async function runTool(name, args, ctx) {
       args: [String(ctx.phone).slice(-10), todayAR()],
     });
     return { turnos: result.rows.map(r => ({ fecha: r.appointment_date, hora: r.appointment_time, servicio: r.servicio, estado: r.status })) };
+  }
+
+  if (name === 'cancelar_turno') {
+    const fecha = String(args.fecha || '');
+    const hora = String(args.hora || '');
+    // Solo puede cancelar sus propios turnos, y que todavía no hayan pasado
+    const found = await db.execute({
+      sql: `SELECT a.*, COALESCE(s.name, a.service) AS servicio_nombre
+            FROM appointments a LEFT JOIN services s ON s.id = a.service
+            WHERE substr(a.client_phone, -10) = ? AND a.appointment_date = ? AND a.appointment_time = ?`,
+      args: [String(ctx.phone).slice(-10), fecha, hora],
+    });
+    const appt = found.rows[0];
+    if (!appt) return { error: 'No encontré un turno de esta clienta en esa fecha y hora. Revisá con mis_turnos.' };
+
+    const hoursLeft = hoursUntil(appt.appointment_date, appt.appointment_time);
+    if (hoursLeft <= 0) return { error: 'Ese turno ya pasó, no se puede cancelar.' };
+
+    await db.execute({ sql: 'DELETE FROM appointments WHERE id = ?', args: [appt.id] });
+
+    const lateCancel = hoursLeft < 24;
+    const miliPhone = process.env.MILI_PHONE_NUMBER || MILI_WHATSAPP_NUMBER;
+    await sendWhatsAppMessage({
+      to: miliPhone,
+      text: `❌ *TURNO CANCELADO POR WHATSAPP*
+
+👤 *Clienta:* ${appt.client_name}
+📱 *Teléfono:* ${appt.client_phone}
+📅 *Fecha:* ${appt.appointment_date}
+⏰ *Hora:* ${appt.appointment_time} hs
+✨ *Servicio:* ${appt.servicio_nombre}${appt.status === 'pending_deposit' ? '\n💰 Estaba pendiente de seña' : ''}${args.motivo ? `\n📝 *Motivo:* ${args.motivo}` : ''}
+${lateCancel ? `\n⚠️ Canceló con menos de 24 hs de anticipación (faltaban ${Math.max(1, Math.round(hoursLeft))} hs).` : ''}
+El horario quedó libre para que lo reserve otra clienta.`,
+    }).catch(err => console.error('Error avisando la cancelación a Mili:', err));
+
+    return {
+      ok: true,
+      cancelado: { fecha: appt.appointment_date, hora: appt.appointment_time, servicio: appt.servicio_nombre },
+      menos_de_24_hs: lateCancel,
+      nota: 'Turno cancelado y Mili ya fue avisada.',
+    };
   }
 
   if (name === 'derivar_a_mili') {
