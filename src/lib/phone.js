@@ -16,6 +16,18 @@ export function normalizePhone(phone) {
   return phone.replace(/\D/g, '').replace(/^0+/, '');
 }
 
+/**
+ * Pasa un número que viene de WhatsApp (formato internacional, ej. "5493417981212")
+ * al formato con que se guardan las clientas en la base ("3417981212"), para que el
+ * bot encuentre a la misma clienta que reservó desde la web.
+ */
+export function fromWhatsAppNumber(waNumber) {
+  const digits = String(waNumber || '').replace(/\D/g, '');
+  if (digits.startsWith('549') && digits.length === 13) return digits.slice(3);
+  if (digits.startsWith('54') && digits.length === 12) return digits.slice(2);
+  return digits;
+}
+
 export function isNoPhone(phone) {
   return typeof phone === 'string' && phone.startsWith('sintel_');
 }

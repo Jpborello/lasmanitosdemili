@@ -1,6 +1,6 @@
 /**
  * Módulo para el envío automático de mensajes de WhatsApp
- * Soporta Green API, UltraMsg y Meta Cloud API.
+ * Soporta Evolution API, Green API, UltraMsg y Meta Cloud API (en ese orden de prioridad).
  */
 
 /**
@@ -29,6 +29,41 @@ export function formatPhoneNumber(phone) {
 }
 
 /**
+ * Enviar un texto por Evolution API (v2). `number` puede ser el número en formato
+ * internacional (5493413022674) o un JID de WhatsApp (ej. ...@s.whatsapp.net / @lid).
+ * Guarda el id del mensaje enviado para que el bot sepa que no lo escribió Mili a mano.
+ */
+export async function sendEvolutionText(number, text) {
+  const baseUrl = (process.env.EVOLUTION_API_URL || '').replace(/\/+$/, '');
+  const apiKey = process.env.EVOLUTION_API_KEY;
+  const instance = process.env.EVOLUTION_INSTANCE;
+
+  const response = await fetch(`${baseUrl}/message/sendText/${encodeURIComponent(instance)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: apiKey },
+    body: JSON.stringify({ number, text }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.error('❌ Error Evolution API:', data);
+    return { success: false, error: data?.response?.message?.toString() || data?.message || 'Error en Evolution API' };
+  }
+
+  try {
+    const { recordSentId } = await import('./botStore');
+    await recordSentId(data?.key?.id);
+  } catch (err) {
+    console.error('No se pudo registrar el id del mensaje enviado:', err);
+  }
+
+  return { success: true, data };
+}
+
+export function isEvolutionConfigured() {
+  return Boolean(process.env.EVOLUTION_API_URL && process.env.EVOLUTION_API_KEY && process.env.EVOLUTION_INSTANCE);
+}
+
+/**
  * Enviar mensaje de WhatsApp usando el proveedor configurado en .env.local
  */
 export async function sendWhatsAppMessage({ to, text }) {
@@ -36,6 +71,13 @@ export async function sendWhatsAppMessage({ to, text }) {
     const formattedPhone = formatPhoneNumber(to);
     if (!formattedPhone) {
       return { success: false, error: 'Número de teléfono inválido' };
+    }
+
+    // 0. Evolution API (WhatsApp de Mili conectado por QR, el mismo que usa el bot)
+    if (isEvolutionConfigured()) {
+      const result = await sendEvolutionText(formattedPhone, text);
+      if (result.success) console.log('✅ Mensaje WhatsApp enviado por Evolution');
+      return result;
     }
 
     // 1. Opciones con Green API (QR directo desde celular de Mili)
