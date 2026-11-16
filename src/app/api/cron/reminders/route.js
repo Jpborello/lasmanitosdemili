@@ -38,9 +38,11 @@ export async function GET(request) {
 
     const db = await getDb();
     const result = await db.execute({
-      sql: `SELECT * FROM appointments
-            WHERE appointment_date = ?
-              AND status = 'confirmed'`,
+      // Nombre del servicio en vez del id interno (ej. "Kapping Poligel" y no "kapping")
+      sql: `SELECT a.*, COALESCE(s.name, a.service) AS service
+            FROM appointments a LEFT JOIN services s ON s.id = a.service
+            WHERE a.appointment_date = ?
+              AND a.status = 'confirmed'`,
       args: [tomorrowStr],
     });
 

@@ -17,6 +17,24 @@ export function pickOne(options) {
   return options[Math.floor(Math.random() * options.length)];
 }
 
+/**
+ * ¿El mensaje es un pedido de turno, consulta de horarios o cancelación?
+ * Estos los atiende el bot siempre, aunque Mili haya estado escribiendo en ese chat.
+ */
+const BOOKING_INTENT = new RegExp(
+  [
+    'turno', 'reserv', 'agend', 'cancel', 'reprogram', 'suspend',
+    'horario', 'disponib', 'lugar(cito)? para', 'hay lugar', 'ten[eé]s lugar',
+    'a qu[eé] hora', 'qu[eé] d[ií]a', 'cambiar (el |la |de )?(d[ií]a|hora|fecha)',
+    'no (voy a )?(poder|puedo) ir', 'no llego',
+  ].join('|'),
+  'i'
+);
+
+export function isBookingIntent(text) {
+  return BOOKING_INTENT.test(String(text || ''));
+}
+
 /** Tiempo de "escribiendo..." según el largo: ~35 ms por letra, con variación, entre 1,5 y 8 s. */
 export function typingTimeFor(text) {
   const base = String(text || '').length * 35;

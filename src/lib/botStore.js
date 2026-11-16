@@ -137,6 +137,17 @@ export async function getResumedAt(chat) {
   return result.rows[0]?.resumed_at || null;
 }
 
+/** Apagado a mano con "#bot off" (pausa de más de 30 días): ahí el bot no habla nunca. */
+export async function isChatTurnedOff(chat) {
+  const db = await getBotDb();
+  const result = await db.execute({
+    sql: 'SELECT paused_until FROM bot_chat_state WHERE chat = ?',
+    args: [chat],
+  });
+  const until = result.rows[0]?.paused_until;
+  return Boolean(until && until > new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString());
+}
+
 export async function isChatPaused(chat) {
   const db = await getBotDb();
   const result = await db.execute({

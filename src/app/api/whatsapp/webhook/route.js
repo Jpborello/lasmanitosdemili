@@ -1,8 +1,8 @@
 import { NextResponse, after } from 'next/server';
 import { generateReply, findRegisteredClient } from '@/lib/bot';
 import { sendEvolutionText, markEvolutionRead, hasRecentManualReply } from '@/lib/whatsapp';
-import { sleep, randomBetween, pickOne, typingTimeFor, splitIntoMessages } from '@/lib/humanize';
-import { getBotDb, saveIncoming, wasSentBySystem, pauseChat, resumeChat, isChatPaused, getResumedAt } from '@/lib/botStore';
+import { sleep, randomBetween, pickOne, typingTimeFor, splitIntoMessages, isBookingIntent } from '@/lib/humanize';
+import { getBotDb, saveIncoming, wasSentBySystem, pauseChat, resumeChat, isChatPaused, isChatTurnedOff, getResumedAt } from '@/lib/botStore';
 
 // El bot llama a OpenRouter (a veces varias veces por las herramientas): damos margen.
 export const maxDuration = 60;
@@ -127,19 +127,29 @@ export async function POST(request) {
     const client = await findRegisteredClient(phone);
     if (!client) { skipped.push('número no registrado como clienta'); continue; }
 
-    if (await isChatPaused(chat)) { skipped.push('chat pausado (Mili está respondiendo)'); continue; }
+    // Mili lo apagó a mano en este chat con "#bot off": no responde nunca
+    if (await isChatTurnedOff(chat)) { skipped.push('bot apagado en este chat (#bot off)'); continue; }
 
-    // Si Mili le escribió a mano a esta clienta hace poco (aunque haya sido antes de que
-    // existiera el bot, o desde su celu sin que nos llegara el aviso), el bot no se mete.
-    // Solo cuentan los mensajes posteriores al último "#bot" que haya mandado Mili.
-    const resumedAt = await getResumedAt(chat);
-    const manualWindowHours = resumedAt
-      ? Math.min(pauseHours, (Date.now() - new Date(resumedAt).getTime()) / 3600000)
-      : pauseHours;
-    if (await hasRecentManualReply([rawJid, chat], manualWindowHours)) {
-      await pauseChat(chat, pauseHours);
-      skipped.push('Mili le escribió a mano hace poco');
-      continue;
+    if (isBookingIntent(text)) {
+      // Pedido de turno, horarios o cancelación: el bot responde SIEMPRE, aunque Mili haya
+      // estado escribiendo. Se reactiva el chat para que la charla siga fluida (ej. el "sí"
+      // de confirmación que viene después).
+      if (await isChatPaused(chat)) await resumeChat(chat);
+    } else {
+      if (await isChatPaused(chat)) { skipped.push('chat pausado (Mili está respondiendo)'); continue; }
+
+      // Si Mili le escribió a mano a esta clienta hace poco (aunque haya sido antes de que
+      // existiera el bot, o desde su celu sin que nos llegara el aviso), el bot no se mete.
+      // Solo cuentan los mensajes posteriores al último "#bot" o al último pedido de turno.
+      const resumedAt = await getResumedAt(chat);
+      const manualWindowHours = resumedAt
+        ? Math.min(pauseHours, (Date.now() - new Date(resumedAt).getTime()) / 3600000)
+        : pauseHours;
+      if (await hasRecentManualReply([rawJid, chat], manualWindowHours)) {
+        await pauseChat(chat, pauseHours);
+        skipped.push('Mili le escribió a mano hace poco');
+        continue;
+      }
     }
 
     if (!text) {
