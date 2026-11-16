@@ -1,5 +1,5 @@
 import { NextResponse, after } from 'next/server';
-import { generateReply } from '@/lib/bot';
+import { generateReply, findRegisteredClient } from '@/lib/bot';
 import { sendEvolutionText } from '@/lib/whatsapp';
 import { getBotDb, saveIncoming, wasSentBySystem, pauseChat, resumeChat, isChatPaused } from '@/lib/botStore';
 
@@ -36,12 +36,6 @@ function resolvePhone(key) {
     }
   }
   return null;
-}
-
-function allowedNumber(phone) {
-  const list = (process.env.BOT_ALLOWED_NUMBERS || '').split(',').map(s => s.replace(/\D/g, '')).filter(Boolean);
-  if (list.length === 0) return true; // sin lista: responde a todas
-  return Boolean(phone && list.some(n => phone.endsWith(n) || n.endsWith(phone)));
 }
 
 /**
@@ -83,6 +77,8 @@ export async function POST(request) {
   const items = Array.isArray(payload.data) ? payload.data : [payload.data];
   const pauseHours = Number(process.env.BOT_PAUSE_HOURS) || 12;
   const botEnabled = process.env.BOT_ENABLED !== 'false';
+  const skipped = [];
+  let processed = 0;
 
   for (const data of items) {
     const key = data?.key;
@@ -115,22 +111,28 @@ export async function POST(request) {
       continue;
     }
 
-    if (!botEnabled) continue;
-    const phone = resolvePhone(key);
-    if (!allowedNumber(phone)) continue;
-    if (await isChatPaused(chat)) continue;
+    if (!botEnabled) { skipped.push('bot apagado (BOT_ENABLED=false)'); continue; }
 
-    const replyTo = phone || chat;
+    const phone = resolvePhone(key);
+    if (!phone) { skipped.push('no se pudo obtener el número'); continue; }
+
+    // Solo responde a clientas registradas en la web. Al resto le contesta Mili a mano.
+    const client = await findRegisteredClient(phone);
+    if (!client) { skipped.push('número no registrado como clienta'); continue; }
+
+    if (await isChatPaused(chat)) { skipped.push('chat pausado (Mili está respondiendo)'); continue; }
 
     if (!text) {
       if (isAudio(data.message)) {
-        after(() => sendEvolutionText(replyTo, 'Perdón, no puedo escuchar audios 🙈 ¿Me lo escribís así te ayudo? 💅'));
+        after(() => sendEvolutionText(phone, 'Perdón, no puedo escuchar audios 🙈 ¿Me lo escribís así te ayudo? 💅'));
       }
+      skipped.push('mensaje sin texto');
       continue;
     }
 
     const isNew = await saveIncoming(chat, text, key.id);
-    if (!isNew) continue; // reintento de Evolution, ya procesado
+    if (!isNew) { skipped.push('mensaje repetido'); continue; }
+    processed++;
 
     after(async () => {
       try {
@@ -145,13 +147,13 @@ export async function POST(request) {
         if (last.rows[0]?.wa_id !== key.id) return;
         if (await isChatPaused(chat)) return;
 
-        const reply = await generateReply({ chat, phone, pushName: data.pushName, pauseHours });
-        if (reply) await sendEvolutionText(replyTo, reply);
+        const reply = await generateReply({ chat, client, pushName: data.pushName, pauseHours });
+        if (reply) await sendEvolutionText(phone, reply);
       } catch (err) {
         console.error('Error respondiendo con el bot de WhatsApp:', err);
       }
     });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, processed, skipped });
 }
