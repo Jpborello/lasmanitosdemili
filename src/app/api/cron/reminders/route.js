@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { sendClientReminder } from '@/lib/whatsapp';
 import { sendClientReminderEmail } from '@/lib/email';
+import { sleep, randomBetween } from '@/lib/humanize';
+
+export const maxDuration = 60;
 
 export async function GET(request) {
   try {
@@ -43,10 +46,17 @@ export async function GET(request) {
 
     const appointments = result.rows;
     let sentCount = 0;
+    const startedAt = Date.now();
 
-    for (const appt of appointments) {
+    for (let i = 0; i < appointments.length; i++) {
+      const appt = appointments[i];
+      // Espaciar los recordatorios con pausas al azar y "escribiendo...", en vez de
+      // mandarlos todos de golpe (ráfagas de mensajes iguales = patrón de spam para Meta).
+      // Si nos acercamos al límite de tiempo de la función, se mandan sin pausa.
+      const hasTime = Date.now() - startedAt < 40000;
+      if (i > 0 && hasTime) await sleep(randomBetween(2000, 5000));
       try {
-        const res = await sendClientReminder(appt);
+        const res = await sendClientReminder(appt, { typingMs: hasTime ? randomBetween(2000, 4000) : undefined });
         if (res?.success) {
           sentCount++;
         }

@@ -3,6 +3,8 @@
  * Soporta Evolution API, Green API, UltraMsg y Meta Cloud API (en ese orden de prioridad).
  */
 
+import { pickOne } from './humanize';
+
 /**
  * Formatear número telefónico para formato internacional E.164 (ej: 5493413022674)
  */
@@ -33,15 +35,45 @@ export function formatPhoneNumber(phone) {
  * internacional (5493413022674) o un JID de WhatsApp (ej. ...@s.whatsapp.net / @lid).
  * Guarda el id del mensaje enviado para que el bot sepa que no lo escribió Mili a mano.
  */
-export async function sendEvolutionText(number, text) {
-  const baseUrl = (process.env.EVOLUTION_API_URL || '').replace(/\/+$/, '');
-  const apiKey = process.env.EVOLUTION_API_KEY;
-  const instance = process.env.EVOLUTION_INSTANCE;
+function evolutionConfig() {
+  return {
+    baseUrl: (process.env.EVOLUTION_API_URL || '').replace(/\/+$/, ''),
+    apiKey: process.env.EVOLUTION_API_KEY,
+    instance: encodeURIComponent(process.env.EVOLUTION_INSTANCE || ''),
+  };
+}
 
-  const response = await fetch(`${baseUrl}/message/sendText/${encodeURIComponent(instance)}`, {
+/**
+ * Marca un mensaje recibido como leído (los tildes azules), como haría una persona
+ * al abrir el chat. Si falla no pasa nada: es solo cosmético.
+ */
+export async function markEvolutionRead(remoteJid, id) {
+  const { baseUrl, apiKey, instance } = evolutionConfig();
+  try {
+    await fetch(`${baseUrl}/chat/markMessageAsRead/${instance}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: apiKey },
+      body: JSON.stringify({ readMessages: [{ remoteJid, fromMe: false, id }] }),
+    });
+  } catch (err) {
+    console.error('No se pudo marcar como leído:', err);
+  }
+}
+
+/**
+ * `typingMs`: si se pasa, Evolution muestra "escribiendo..." durante ese tiempo
+ * antes de mandar el mensaje.
+ */
+export async function sendEvolutionText(number, text, { typingMs } = {}) {
+  const { baseUrl, apiKey, instance } = evolutionConfig();
+
+  const body = { number, text };
+  if (typingMs) body.delay = Math.round(typingMs);
+
+  const response = await fetch(`${baseUrl}/message/sendText/${instance}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', apikey: apiKey },
-    body: JSON.stringify({ number, text }),
+    body: JSON.stringify(body),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -66,7 +98,7 @@ export function isEvolutionConfigured() {
 /**
  * Enviar mensaje de WhatsApp usando el proveedor configurado en .env.local
  */
-export async function sendWhatsAppMessage({ to, text }) {
+export async function sendWhatsAppMessage({ to, text, typingMs }) {
   try {
     const formattedPhone = formatPhoneNumber(to);
     if (!formattedPhone) {
@@ -75,7 +107,7 @@ export async function sendWhatsAppMessage({ to, text }) {
 
     // 0. Evolution API (WhatsApp de Mili conectado por QR, el mismo que usa el bot)
     if (isEvolutionConfigured()) {
-      const result = await sendEvolutionText(formattedPhone, text);
+      const result = await sendEvolutionText(formattedPhone, text, { typingMs });
       if (result.success) console.log('✅ Mensaje WhatsApp enviado por Evolution');
       return result;
     }
@@ -210,16 +242,24 @@ ${MIS_TURNOS_LINE}`;
 /**
  * 3. Enviar recordatorio 1 día antes a la clienta
  */
-export async function sendClientReminder(appointment) {
-  const message = `🌸 *¡Hola ${appointment.client_name}!*
+export async function sendClientReminder(appointment, { typingMs } = {}) {
+  // Varias versiones del mismo recordatorio, para no mandar siempre el mismo texto idéntico
+  const firstName = String(appointment.client_name || '').split(' ')[0] || appointment.client_name;
+  const greeting = pickOne([`🌸 *¡Hola ${firstName}!*`, `💅 *¡Hola ${firstName}!*`, `✨ *Hola ${firstName}, ¿cómo estás?*`]);
+  const body = pickOne([
+    `Te recuerdo que mañana *${appointment.appointment_date}* a las *${appointment.appointment_time} hs* tenés tu turno en *Las Manitos de Mili* 💅 para *${appointment.service}*.`,
+    `Te escribo para recordarte tu turno de mañana *${appointment.appointment_date}* a las *${appointment.appointment_time} hs* (${appointment.service}) en *Las Manitos de Mili* 💅`,
+    `Mañana *${appointment.appointment_date}* a las *${appointment.appointment_time} hs* te espero para *${appointment.service}* en *Las Manitos de Mili* 💅`,
+  ]);
+  const closing = pickOne([
+    'Si tenés algún inconveniente, avisame con anticipación porfa. ¡Nos vemos mañana! 🥰',
+    'Cualquier cosa que te surja, avisame con tiempo así reacomodo. ¡Te espero! 🥰',
+    'Si no podés venir, avisame así le doy el lugar a otra clienta. ¡Nos vemos! 💖',
+  ]);
 
-Te recuerdo que mañana *${appointment.appointment_date}* a las *${appointment.appointment_time} hs* tenés tu turno reservado en *Las Manitos de Mili* 💅 para *${appointment.service}*.
+  const message = `${greeting}\n\n${body}\n\n${closing}\n\n${MIS_TURNOS_LINE}`;
 
-Por favor, avísame con anticipación si tenés algún inconveniente. ¡Nos vemos mañana! 🥰
-
-${MIS_TURNOS_LINE}`;
-
-  return await sendWhatsAppMessage({ to: appointment.client_phone, text: message });
+  return await sendWhatsAppMessage({ to: appointment.client_phone, text: message, typingMs });
 }
 
 /**

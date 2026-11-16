@@ -1,14 +1,18 @@
 import { NextResponse, after } from 'next/server';
 import { generateReply, findRegisteredClient } from '@/lib/bot';
-import { sendEvolutionText } from '@/lib/whatsapp';
+import { sendEvolutionText, markEvolutionRead } from '@/lib/whatsapp';
+import { sleep, randomBetween, pickOne, typingTimeFor, splitIntoMessages } from '@/lib/humanize';
 import { getBotDb, saveIncoming, wasSentBySystem, pauseChat, resumeChat, isChatPaused } from '@/lib/botStore';
 
 // El bot llama a OpenRouter (a veces varias veces por las herramientas): damos margen.
 export const maxDuration = 60;
 
-// Cuánto espera el bot antes de responder, para juntar varios mensajes seguidos
-// de la misma clienta en una sola respuesta.
-const DEBOUNCE_MS = 4000;
+// Cuánto espera el bot antes de responder (al azar, como una persona), y de paso junta
+// varios mensajes seguidos de la misma clienta en una sola respuesta.
+const DEBOUNCE_MIN_MS = 3000;
+const DEBOUNCE_MAX_MS = 7000;
+// Tope de "escribiendo..." sumando todas las partes, para no pasarnos del maxDuration
+const MAX_TOTAL_TYPING_MS = 18000;
 
 function extractText(message) {
   if (!message) return '';
@@ -124,7 +128,15 @@ export async function POST(request) {
 
     if (!text) {
       if (isAudio(data.message)) {
-        after(() => sendEvolutionText(phone, 'Perdón, no puedo escuchar audios 🙈 ¿Me lo escribís así te ayudo? 💅'));
+        after(async () => {
+          await sleep(randomBetween(4000, 9000));
+          await markEvolutionRead(chat, key.id);
+          await sendEvolutionText(phone, pickOne([
+            'Perdón, no puedo escuchar audios 🙈 ¿Me lo escribís así te ayudo? 💅',
+            'Ay, los audios no los puedo escuchar 😅 ¿Me lo pasás por escrito?',
+            '¡Hola! No puedo abrir audios por acá 🙈 Escribime y te ayudo 💅',
+          ]), { typingMs: randomBetween(2000, 3500) });
+        });
       }
       skipped.push('mensaje sin texto');
       continue;
@@ -136,7 +148,7 @@ export async function POST(request) {
 
     after(async () => {
       try {
-        await new Promise(r => setTimeout(r, DEBOUNCE_MS));
+        await sleep(randomBetween(DEBOUNCE_MIN_MS, DEBOUNCE_MAX_MS));
 
         // Si la clienta mandó otro mensaje mientras esperábamos, responde ese otro
         const db = await getBotDb();
@@ -147,8 +159,22 @@ export async function POST(request) {
         if (last.rows[0]?.wa_id !== key.id) return;
         if (await isChatPaused(chat)) return;
 
+        // Como una persona: abre el chat (tildes azules) y lee un momento antes de contestar
+        await markEvolutionRead(chat, key.id);
+        await sleep(randomBetween(1000, 3000));
+
         const reply = await generateReply({ chat, client, pushName: data.pushName, pauseHours });
-        if (reply) await sendEvolutionText(phone, reply);
+        if (!reply) return;
+
+        // Respuestas largas en varios mensajes, cada uno con su "escribiendo..."
+        const parts = splitIntoMessages(reply);
+        let typingBudget = MAX_TOTAL_TYPING_MS;
+        for (let i = 0; i < parts.length; i++) {
+          const typingMs = Math.min(typingTimeFor(parts[i]), Math.max(1000, typingBudget));
+          typingBudget -= typingMs;
+          await sendEvolutionText(phone, parts[i], { typingMs });
+          if (i < parts.length - 1) await sleep(randomBetween(400, 1500));
+        }
       } catch (err) {
         console.error('Error respondiendo con el bot de WhatsApp:', err);
       }
