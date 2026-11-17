@@ -53,6 +53,10 @@ const BOOKING_INTENT = new RegExp(
     'horario', 'disponib', 'lugar(cito)? para', 'hay lugar', 'ten[eé]s lugar',
     'a qu[eé] hora', 'qu[eé] d[ií]a', 'cambiar (el |la |de )?(d[ií]a|hora|fecha)',
     'no (voy a )?(poder|puedo) ir', 'no llego',
+    // "¿tenés algo libre?", "¿te queda algún hueco?", "¿hay cupo?", "¿qué fecha tenés?"
+    '\\blibres?\\b', '\\bcupos?\\b', '\\bhuecos?\\b', '\\bfechas?\\b',
+    // "quiero sacar para kapping", "me querés anotar", "me anotás"
+    '\\bsacar (para|un|una|uno)\\b', 'quiero sacar', '\\banot(ar|[aá]s|ame|arme)\\b',
   ].join('|'),
   'i'
 );
