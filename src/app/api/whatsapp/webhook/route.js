@@ -1,6 +1,6 @@
 import { NextResponse, after } from 'next/server';
 import { generateReply, findRegisteredClient } from '@/lib/bot';
-import { sendEvolutionText, markEvolutionRead, hasRecentManualReply } from '@/lib/whatsapp';
+import { sendEvolutionText, markEvolutionRead, hasRecentManualReply, resolvePhoneFromLid } from '@/lib/whatsapp';
 import { sleep, randomBetween, pickOne, typingTimeFor, splitIntoMessages, isBookingIntent } from '@/lib/humanize';
 import { getBotDb, saveIncoming, wasSentBySystem, pauseChat, resumeChat, isChatPaused, isChatTurnedOff, getResumedAt } from '@/lib/botStore';
 
@@ -90,7 +90,8 @@ export async function POST(request) {
     if (!rawJid || rawJid.endsWith('@g.us') || rawJid === 'status@broadcast' || rawJid.endsWith('@newsletter')) continue;
 
     // Identificamos cada chat por el número (WhatsApp a veces manda @lid y a veces el número)
-    const phone = resolvePhone(key);
+    // Si solo vino el @lid, se intenta encontrar el número por el nombre de perfil
+    const phone = resolvePhone(key) || (await resolvePhoneFromLid(rawJid));
     const chat = phone ? `${phone}@s.whatsapp.net` : rawJid;
 
     const text = extractText(data.message);

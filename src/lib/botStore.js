@@ -42,6 +42,14 @@ export async function getBotDb() {
         paused_until TEXT
       )
     `);
+    // Identificadores internos de WhatsApp (@lid) ya asociados a un número
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS bot_lid_map (
+        lid TEXT PRIMARY KEY,
+        phone TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
     // Cuándo Mili reactivó el bot en ese chat con "#bot" (los mensajes suyos anteriores
     // ya no cuentan para frenar al bot)
     try {
@@ -135,6 +143,21 @@ export async function getResumedAt(chat) {
     args: [chat],
   });
   return result.rows[0]?.resumed_at || null;
+}
+
+export async function getLidPhone(lid) {
+  const db = await getBotDb();
+  const result = await db.execute({ sql: 'SELECT phone FROM bot_lid_map WHERE lid = ?', args: [lid] });
+  return result.rows[0]?.phone || null;
+}
+
+export async function saveLidPhone(lid, phone) {
+  const db = await getBotDb();
+  await db.execute({
+    sql: `INSERT INTO bot_lid_map (lid, phone, created_at) VALUES (?, ?, ?)
+          ON CONFLICT(lid) DO UPDATE SET phone = excluded.phone`,
+    args: [lid, phone, new Date().toISOString()],
+  });
 }
 
 /** Apagado a mano con "#bot off" (pausa de más de 30 días): ahí el bot no habla nunca. */

@@ -61,6 +61,50 @@ export async function markEvolutionRead(remoteJid, id) {
   }
 }
 
+async function findEvolutionContacts(where) {
+  const { baseUrl, apiKey, instance } = evolutionConfig();
+  const response = await fetch(`${baseUrl}/chat/findContacts/${instance}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: apiKey },
+    body: JSON.stringify({ where }),
+  });
+  if (!response.ok) return [];
+  const data = await response.json();
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * Algunos chats llegan solo con un identificador interno de WhatsApp (@lid), sin el
+ * número. Como respaldo, se busca en los contactos del WhatsApp de Mili el contacto
+ * con número que tiene el MISMO nombre de perfil que ese @lid. Solo se usa si hay
+ * exactamente uno (si hay dos "Eli" con número, no se adivina). El resultado se guarda
+ * para no repetir la búsqueda.
+ */
+export async function resolvePhoneFromLid(lid) {
+  if (!lid || !lid.endsWith('@lid')) return null;
+  const { getLidPhone, saveLidPhone } = await import('./botStore');
+
+  const cached = await getLidPhone(lid);
+  if (cached) return cached;
+
+  try {
+    const [lidContact] = await findEvolutionContacts({ remoteJid: lid });
+    const name = lidContact?.pushName?.trim();
+    if (!name) return null;
+
+    const sameName = (await findEvolutionContacts({ pushName: name }))
+      .filter(c => c.pushName?.trim() === name && c.remoteJid?.endsWith('@s.whatsapp.net'));
+    if (sameName.length !== 1) return null;
+
+    const phone = sameName[0].remoteJid.split('@')[0];
+    await saveLidPhone(lid, phone);
+    return phone;
+  } catch (err) {
+    console.error('No se pudo resolver el número del @lid:', err);
+    return null;
+  }
+}
+
 /**
  * ¿Mili escribió a mano en este chat en las últimas `hours` horas?
  * Mira el historial real de WhatsApp en Evolution (incluye lo que escribió antes de que
