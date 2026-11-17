@@ -98,6 +98,60 @@ export async function getHistory(chat, limit = 20) {
   return result.rows.reverse().map(r => ({ role: r.role, content: r.content }));
 }
 
+/** ¿Este es el último mensaje que mandó la clienta? (si mandó otro después, responde ese) */
+export async function isLatestUserMessage(chat, waId) {
+  const db = await getBotDb();
+  const result = await db.execute({
+    sql: "SELECT wa_id FROM bot_messages WHERE chat = ? AND role = 'user' ORDER BY id DESC LIMIT 1",
+    args: [chat],
+  });
+  return result.rows[0]?.wa_id === waId;
+}
+
+/** ¿Ya le pedimos que escriba en vez de mandar audios en los últimos 30 minutos? */
+export async function sentAudioNoticeRecently(chat) {
+  const db = await getBotDb();
+  const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  const result = await db.execute({
+    sql: `SELECT 1 FROM bot_messages
+          WHERE chat = ? AND role = 'assistant' AND created_at >= ? AND content LIKE '%audio%'
+          LIMIT 1`,
+    args: [chat, since],
+  });
+  return result.rows.length > 0;
+}
+
+/**
+ * Chats cuyo último mensaje es de la clienta (nadie le respondió todavía) y llegó
+ * después de `sinceIso`. Devuelve, por chat, los mensajes sin responder.
+ */
+export async function getUnansweredChats(sinceIso) {
+  const db = await getBotDb();
+  const lastRows = await db.execute({
+    sql: `SELECT m.chat, m.wa_id FROM bot_messages m
+          WHERE m.id IN (SELECT MAX(id) FROM bot_messages GROUP BY chat)
+            AND m.role = 'user' AND m.created_at >= ?
+          ORDER BY m.id`,
+    args: [sinceIso],
+  });
+
+  const chats = [];
+  for (const row of lastRows.rows) {
+    const lastAssistant = await db.execute({
+      sql: "SELECT MAX(id) AS id FROM bot_messages WHERE chat = ? AND role = 'assistant'",
+      args: [row.chat],
+    });
+    const msgs = await db.execute({
+      sql: `SELECT content FROM bot_messages
+            WHERE chat = ? AND role = 'user' AND id > ? AND created_at >= ?
+            ORDER BY id`,
+      args: [row.chat, lastAssistant.rows[0]?.id || 0, sinceIso],
+    });
+    chats.push({ chat: row.chat, lastWaId: row.wa_id, texts: msgs.rows.map(r => r.content) });
+  }
+  return chats;
+}
+
 export async function recordSentId(waId) {
   if (!waId) return;
   const db = await getBotDb();

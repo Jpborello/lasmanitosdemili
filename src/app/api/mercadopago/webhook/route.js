@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getDb } from '@/lib/db';
 import { notifyAdminNewAppointment, sendClientConfirmation } from '@/lib/whatsapp';
 import { sendClientConfirmationEmail } from '@/lib/email';
@@ -80,10 +80,10 @@ export async function POST(request) {
             });
             console.log(`Appointment ${appointmentId} confirmed successfully via webhook.`);
 
-            notifyAdminNewAppointment(appt).catch(err => console.error('Error enviando WhatsApp admin en webhook:', err));
-            sendClientConfirmation(appt).catch(err => console.error('Error enviando WhatsApp clienta en webhook:', err));
+            after(() => notifyAdminNewAppointment(appt).catch(err => console.error('Error enviando WhatsApp admin en webhook:', err)));
+            after(() => sendClientConfirmation(appt).catch(err => console.error('Error enviando WhatsApp clienta en webhook:', err)));
             if (appt.client_email) {
-              sendClientConfirmationEmail(appt).catch(err => console.error('Error enviando email a clienta en webhook:', err));
+              after(() => sendClientConfirmationEmail(appt).catch(err => console.error('Error enviando email a clienta en webhook:', err)));
             }
           }
         }

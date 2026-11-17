@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getDb } from '@/lib/db';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
@@ -363,16 +363,16 @@ export async function POST(request) {
 
       // Si el turno queda confirmado automáticamente (sin seña previa), enviar WhatsApps y email
       if (appointmentStatus === 'confirmed') {
-        notifyAdminNewAppointment(appointmentObj).catch(err => console.error('Error enviando WhatsApp a Mili:', err));
-        sendClientConfirmation(appointmentObj).catch(err => console.error('Error enviando WhatsApp a clienta:', err));
+        after(() => notifyAdminNewAppointment(appointmentObj).catch(err => console.error('Error enviando WhatsApp a Mili:', err)));
+        after(() => sendClientConfirmation(appointmentObj).catch(err => console.error('Error enviando WhatsApp a clienta:', err)));
         if (client_email) {
-          sendClientConfirmationEmail(appointmentObj).catch(err => console.error('Error enviando email a clienta:', err));
+          after(() => sendClientConfirmationEmail(appointmentObj).catch(err => console.error('Error enviando email a clienta:', err)));
         }
       } else if (appointmentStatus === 'pending_deposit') {
         // Clienta restringida: avisar a Mili que hay una seña para revisar, y a la clienta
         // las instrucciones de pago. El turno se confirma recién cuando Mili lo apruebe.
-        notifyAdminDepositPending(appointmentObj, depositAmount).catch(err => console.error('Error enviando WhatsApp de seña pendiente a Mili:', err));
-        sendClientDepositInstructions(appointmentObj, depositAmount, depositInstructions).catch(err => console.error('Error enviando WhatsApp de instrucciones de seña a clienta:', err));
+        after(() => notifyAdminDepositPending(appointmentObj, depositAmount).catch(err => console.error('Error enviando WhatsApp de seña pendiente a Mili:', err)));
+        after(() => sendClientDepositInstructions(appointmentObj, depositAmount, depositInstructions).catch(err => console.error('Error enviando WhatsApp de instrucciones de seña a clienta:', err)));
       }
     } catch (dbError) {
       if (
@@ -492,10 +492,10 @@ export async function PATCH(request) {
         price: appt.price,
         status: 'confirmed',
       };
-      notifyAdminNewAppointment(appointmentObj).catch(err => console.error('Error enviando WhatsApp admin al aprobar seña:', err));
-      sendClientConfirmation(appointmentObj).catch(err => console.error('Error enviando WhatsApp a clienta al aprobar seña:', err));
+      after(() => notifyAdminNewAppointment(appointmentObj).catch(err => console.error('Error enviando WhatsApp admin al aprobar seña:', err)));
+      after(() => sendClientConfirmation(appointmentObj).catch(err => console.error('Error enviando WhatsApp a clienta al aprobar seña:', err)));
       if (appt.client_email) {
-        sendClientConfirmationEmail(appointmentObj).catch(err => console.error('Error enviando email a clienta al aprobar seña:', err));
+        after(() => sendClientConfirmationEmail(appointmentObj).catch(err => console.error('Error enviando email a clienta al aprobar seña:', err)));
       }
     }
 

@@ -1,8 +1,12 @@
 import { NextResponse, after } from 'next/server';
-import { generateReply, findRegisteredClient } from '@/lib/bot';
+import { findRegisteredClient } from '@/lib/bot';
+import { replyToChat } from '@/lib/botReply';
 import { sendEvolutionText, markEvolutionRead, hasRecentManualReply, resolvePhoneFromLid } from '@/lib/whatsapp';
-import { sleep, randomBetween, pickOne, typingTimeFor, splitIntoMessages, isBookingIntent } from '@/lib/humanize';
-import { getBotDb, saveIncoming, wasSentBySystem, pauseChat, resumeChat, isChatPaused, isChatTurnedOff, getResumedAt } from '@/lib/botStore';
+import { sleep, randomBetween, pickOne, isBookingIntent, isQuietHours, isAutomatedText } from '@/lib/humanize';
+import {
+  saveIncoming, saveAssistant, wasSentBySystem, pauseChat, resumeChat, isChatPaused, isChatTurnedOff,
+  getResumedAt, isLatestUserMessage, sentAudioNoticeRecently,
+} from '@/lib/botStore';
 
 // El bot llama a OpenRouter (a veces varias veces por las herramientas): damos margen.
 export const maxDuration = 60;
@@ -11,8 +15,8 @@ export const maxDuration = 60;
 // varios mensajes seguidos de la misma clienta en una sola respuesta.
 const DEBOUNCE_MIN_MS = 3000;
 const DEBOUNCE_MAX_MS = 7000;
-// Tope de "escribiendo..." sumando todas las partes, para no pasarnos del maxDuration
-const MAX_TOTAL_TYPING_MS = 18000;
+// Mensajes con más de esta antigüedad al llegar no se contestan (llegaron con demora)
+const STALE_MESSAGE_MS = 30 * 60 * 1000;
 
 function extractText(message) {
   if (!message) return '';
@@ -104,6 +108,7 @@ export async function POST(request) {
           // esperamos un poco antes de decidir si lo escribió Mili a mano.
           await new Promise(r => setTimeout(r, 3000));
           if (await wasSentBySystem(key.id)) return; // lo mandó el bot o un aviso automático
+          if (isAutomatedText(text)) return; // confirmación / aviso automático (respaldo)
           const command = text.toLowerCase();
           if (command === '#bot' || command === '#bot on') {
             await resumeChat(chat);
@@ -131,6 +136,15 @@ export async function POST(request) {
     // Mili lo apagó a mano en este chat con "#bot off": no responde nunca
     if (await isChatTurnedOff(chat)) { skipped.push('bot apagado en este chat (#bot off)'); continue; }
 
+    // Mensajes que llegan con mucha demora (por ejemplo, cuando WhatsApp reconecta y
+    // entrega todo lo atrasado de golpe): no se contestan, porque seguramente ya los
+    // respondió Mili o ya no tienen sentido.
+    const sentAt = Number(data.messageTimestamp) * 1000;
+    if (sentAt && Date.now() - sentAt > STALE_MESSAGE_MS) {
+      skipped.push('mensaje viejo (llegó con demora)');
+      continue;
+    }
+
     if (isBookingIntent(text)) {
       // Pedido de turno, horarios o cancelación: el bot responde SIEMPRE, aunque Mili haya
       // estado escribiendo. Se reactiva el chat para que la charla siga fluida (ej. el "sí"
@@ -153,24 +167,41 @@ export async function POST(request) {
       }
     }
 
+    const quiet = isQuietHours();
+
     if (!text) {
-      if (isAudio(data.message)) {
-        after(async () => {
+      if (!isAudio(data.message)) { skipped.push('mensaje sin texto'); continue; }
+      if (quiet) { skipped.push('audio en horario nocturno'); continue; }
+
+      // Audios: un solo aviso aunque manden varios seguidos, y no más de uno cada 30 min
+      const isNewAudio = await saveIncoming(chat, '[audio]', key.id);
+      if (!isNewAudio) { skipped.push('mensaje repetido'); continue; }
+      after(async () => {
+        try {
           await sleep(randomBetween(4000, 9000));
+          if (!(await isLatestUserMessage(chat, key.id))) return;
+          if (await sentAudioNoticeRecently(chat)) return;
           await markEvolutionRead(rawJid, key.id);
-          await sendEvolutionText(phone, pickOne([
+          const notice = pickOne([
             'Perdón, no puedo escuchar audios 🙈 ¿Me lo escribís así te ayudo? 💅',
             'Ay, los audios no los puedo escuchar 😅 ¿Me lo pasás por escrito?',
             '¡Hola! No puedo abrir audios por acá 🙈 Escribime y te ayudo 💅',
-          ]), { typingMs: randomBetween(2000, 3500) });
-        });
-      }
-      skipped.push('mensaje sin texto');
+          ]);
+          await saveAssistant(chat, notice);
+          await sendEvolutionText(phone, notice, { typingMs: randomBetween(2000, 3500) });
+        } catch (err) {
+          console.error('Error respondiendo un audio:', err);
+        }
+      });
+      skipped.push('audio: se pide que lo escriba');
       continue;
     }
 
     const isNew = await saveIncoming(chat, text, key.id);
     if (!isNew) { skipped.push('mensaje repetido'); continue; }
+
+    // De noche no se responde: el mensaje queda guardado y lo contesta el cron de la mañana
+    if (quiet) { skipped.push('horario nocturno: se responde a la mañana'); continue; }
     processed++;
 
     after(async () => {
@@ -178,30 +209,10 @@ export async function POST(request) {
         await sleep(randomBetween(DEBOUNCE_MIN_MS, DEBOUNCE_MAX_MS));
 
         // Si la clienta mandó otro mensaje mientras esperábamos, responde ese otro
-        const db = await getBotDb();
-        const last = await db.execute({
-          sql: "SELECT wa_id FROM bot_messages WHERE chat = ? AND role = 'user' ORDER BY id DESC LIMIT 1",
-          args: [chat],
-        });
-        if (last.rows[0]?.wa_id !== key.id) return;
+        if (!(await isLatestUserMessage(chat, key.id))) return;
         if (await isChatPaused(chat)) return;
 
-        // Como una persona: abre el chat (tildes azules) y lee un momento antes de contestar
-        await markEvolutionRead(rawJid, key.id);
-        await sleep(randomBetween(1000, 3000));
-
-        const reply = await generateReply({ chat, client, pushName: data.pushName, pauseHours });
-        if (!reply) return;
-
-        // Respuestas largas en varios mensajes, cada uno con su "escribiendo..."
-        const parts = splitIntoMessages(reply);
-        let typingBudget = MAX_TOTAL_TYPING_MS;
-        for (let i = 0; i < parts.length; i++) {
-          const typingMs = Math.min(typingTimeFor(parts[i]), Math.max(1000, typingBudget));
-          typingBudget -= typingMs;
-          await sendEvolutionText(phone, parts[i], { typingMs });
-          if (i < parts.length - 1) await sleep(randomBetween(400, 1500));
-        }
+        await replyToChat({ chat, client, phone, readJid: rawJid, readId: key.id, pauseHours });
       } catch (err) {
         console.error('Error respondiendo con el bot de WhatsApp:', err);
       }

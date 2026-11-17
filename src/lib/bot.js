@@ -57,7 +57,7 @@ export async function findRegisteredClient(waNumber) {
 }
 
 /** Próximos N días con su nombre, para que el modelo no se equivoque con las fechas. */
-function upcomingCalendar(days = 21) {
+function upcomingCalendar(days = 60) {
   const today = todayAR();
   const base = new Date(`${today}T12:00:00`);
   const lines = [];
@@ -327,12 +327,13 @@ async function callOpenRouter(messages) {
  * estar guardado en el historial (saveIncoming) antes de llamar a esto.
  * Devuelve el texto a enviar, o null si no hay que responder.
  */
-export async function generateReply({ chat, client, pushName, pauseHours }) {
+export async function generateReply({ chat, client, pushName, pauseHours, extraContext }) {
   const db = await getDb();
 
   const history = await getHistory(chat);
   const messages = [
     { role: 'system', content: await buildSystemPrompt(db, { knownName: client.name, trustStatus: client.trust_status }) },
+    ...(extraContext ? [{ role: 'system', content: extraContext }] : []),
     ...history,
   ];
 

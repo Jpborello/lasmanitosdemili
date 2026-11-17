@@ -18,6 +18,32 @@ export function pickOne(options) {
 }
 
 /**
+ * Horario de descanso: de noche el bot no manda nada (como una persona que duerme).
+ * Por defecto de 22:00 a 08:00 hora Argentina; configurable con BOT_QUIET_START / BOT_QUIET_END.
+ * Los mensajes que llegan de noche se responden a la mañana (cron morning-replies).
+ */
+export function isQuietHours(date = new Date()) {
+  const start = Number(process.env.BOT_QUIET_START ?? 22);
+  const end = Number(process.env.BOT_QUIET_END ?? 8);
+  const hour = Number(date.toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires', hour: 'numeric', hour12: false })) % 24;
+  return start > end ? hour >= start || hour < end : hour >= start && hour < end;
+}
+
+/**
+ * Mensajes automáticos del sistema (confirmaciones, avisos a Mili, recordatorios, etc.).
+ * Sirve de respaldo para no confundirlos con mensajes que Mili escribió a mano.
+ */
+const AUTOMATED_PREFIXES = [
+  '💖 *¡Hola', '💅 *¡NUEVO TURNO', '⚠️ *SEÑA PENDIENTE', '❌ *TURNO CANCELADO',
+  '🙋‍♀️ *Una clienta', '🌸 *¡Hola', '✨ *Hola', '💅 *¡Hola',
+];
+
+export function isAutomatedText(text) {
+  const t = String(text || '').trim();
+  return AUTOMATED_PREFIXES.some(p => t.startsWith(p));
+}
+
+/**
  * ¿El mensaje es un pedido de turno, consulta de horarios o cancelación?
  * Estos los atiende el bot siempre, aunque Mili haya estado escribiendo en ese chat.
  */

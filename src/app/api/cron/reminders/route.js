@@ -39,14 +39,15 @@ export async function GET(request) {
     const db = await getDb();
     const result = await db.execute({
       // Nombre del servicio en vez del id interno (ej. "Kapping Poligel" y no "kapping")
-      sql: `SELECT a.*, COALESCE(s.name, a.service) AS service
+      // (alias distinto: con "AS service" chocaba con la columna a.service y seguía saliendo el id)
+      sql: `SELECT a.*, COALESCE(s.name, a.service) AS service_name
             FROM appointments a LEFT JOIN services s ON s.id = a.service
             WHERE a.appointment_date = ?
               AND a.status = 'confirmed'`,
       args: [tomorrowStr],
     });
 
-    const appointments = result.rows;
+    const appointments = result.rows.map(r => ({ ...r, service: r.service_name }));
     let sentCount = 0;
     const startedAt = Date.now();
 

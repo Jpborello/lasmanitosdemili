@@ -3,7 +3,7 @@
  * Soporta Evolution API, Green API, UltraMsg y Meta Cloud API (en ese orden de prioridad).
  */
 
-import { pickOne } from './humanize';
+import { pickOne, isAutomatedText } from './humanize';
 
 /**
  * Formatear número telefónico para formato internacional E.164 (ej: 5493413022674)
@@ -130,6 +130,9 @@ export async function hasRecentManualReply(jids, hours) {
         if (!msg?.key?.fromMe) continue;
         if (Number(msg.messageTimestamp) < since) continue;
         if (await wasSentBySystem(msg.key.id)) continue;
+        // Confirmaciones y avisos automáticos no cuentan como "Mili escribió a mano"
+        const msgText = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
+        if (isAutomatedText(msgText)) continue;
         return true;
       }
     }
