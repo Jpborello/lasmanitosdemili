@@ -5,7 +5,7 @@ import { sendEvolutionText, markEvolutionRead, hasRecentManualReply, resolvePhon
 import { sleep, randomBetween, pickOne, isBookingIntent, isQuietHours, isAutomatedText } from '@/lib/humanize';
 import {
   saveIncoming, saveAssistant, wasSentBySystem, pauseChat, resumeChat, isChatPaused, isChatTurnedOff,
-  getResumedAt, isLatestUserMessage, sentAudioNoticeRecently,
+  getResumedAt, isLatestUserMessage, sentAudioNoticeRecently, setHealth,
 } from '@/lib/botStore';
 
 // El bot llama a OpenRouter (a veces varias veces por las herramientas): damos margen.
@@ -83,6 +83,12 @@ export async function POST(request) {
 
   // Evolution puede mandar un mensaje o una lista
   const items = Array.isArray(payload.data) ? payload.data : [payload.data];
+
+  // Salud de la conexión: registrar que entró un mensaje (de cualquiera, incluso grupos).
+  // Lo usa /api/health/whatsapp para avisar si Evolution deja de recibir.
+  if (items.some(d => d?.key && !d.key.fromMe)) {
+    await setHealth('last_incoming_at', new Date().toISOString()).catch(() => {});
+  }
   const pauseHours = Number(process.env.BOT_PAUSE_HOURS) || 12;
   const botEnabled = process.env.BOT_ENABLED !== 'false';
   const skipped = [];

@@ -61,6 +61,19 @@ export async function markEvolutionRead(remoteJid, id) {
   }
 }
 
+/** Estado de la conexión de la instancia en Evolution ('open', 'close', 'connecting' o null si no responde). */
+export async function getEvolutionState() {
+  const { baseUrl, apiKey, instance } = evolutionConfig();
+  try {
+    const response = await fetch(`${baseUrl}/instance/connectionState/${instance}`, { headers: { apikey: apiKey } });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data?.instance?.state || null;
+  } catch {
+    return null;
+  }
+}
+
 async function findEvolutionContacts(where) {
   const { baseUrl, apiKey, instance } = evolutionConfig();
   const response = await fetch(`${baseUrl}/chat/findContacts/${instance}`, {

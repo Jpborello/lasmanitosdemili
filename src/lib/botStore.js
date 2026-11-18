@@ -50,6 +50,13 @@ export async function getBotDb() {
         created_at TEXT NOT NULL
       )
     `);
+    // Salud de la conexión: último mensaje recibido, última alerta enviada, etc.
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS bot_health (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    `);
     // Cuándo Mili reactivó el bot en ese chat con "#bot" (los mensajes suyos anteriores
     // ya no cuentan para frenar al bot)
     try {
@@ -197,6 +204,21 @@ export async function getResumedAt(chat) {
     args: [chat],
   });
   return result.rows[0]?.resumed_at || null;
+}
+
+export async function getHealth(key) {
+  const db = await getBotDb();
+  const result = await db.execute({ sql: 'SELECT value FROM bot_health WHERE key = ?', args: [key] });
+  return result.rows[0]?.value || null;
+}
+
+export async function setHealth(key, value) {
+  const db = await getBotDb();
+  await db.execute({
+    sql: `INSERT INTO bot_health (key, value) VALUES (?, ?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    args: [key, value],
+  });
 }
 
 export async function getLidPhone(lid) {
