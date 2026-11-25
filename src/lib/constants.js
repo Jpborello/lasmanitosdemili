@@ -1,6 +1,8 @@
 // Editables a mano: ajustá estos valores según corresponda.
 export const YEARS_OF_EXPERIENCE = 6;
 export const MILI_WHATSAPP_NUMBER = '5493413022674'; // Formato internacional (54 9 341 302 2674)
+export const STUDIO_ADDRESS = 'Gandhi 6890, Rosario';
+export const STUDIO_MAPS_URL = 'https://maps.google.com/?q=Gandhi+6890,+Rosario,+Santa+Fe';
 
 // Franja de confianza de la landing: representa la trayectoria de Mili ANTES
 // de este sistema de reservas online (años trabajando de manera particular/presencial).

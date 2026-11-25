@@ -9,7 +9,7 @@ import { getAvailableTimes, getBookingSettings } from './availability';
 import { todayAR } from './turno20';
 import { fromWhatsAppNumber } from './phone';
 import { sendWhatsAppMessage } from './whatsapp';
-import { MILI_WHATSAPP_NUMBER } from './constants';
+import { MILI_WHATSAPP_NUMBER, STUDIO_ADDRESS, STUDIO_MAPS_URL } from './constants';
 import { getHistory, saveAssistant, pauseChat } from './botStore';
 import { POST as createAppointment } from '@/app/api/appointments/route';
 
@@ -21,6 +21,30 @@ const MAX_TOOL_ROUNDS = 5;
 const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
 const TRUST_RANK = { trusted: 0, restricted: 1, blocked: 2 };
+
+/** Turnos futuros de la clienta (por los últimos 10 dígitos del teléfono). */
+async function getUpcomingAppointments(db, phone) {
+  const result = await db.execute({
+    sql: `SELECT a.appointment_date, a.appointment_time, a.status, COALESCE(s.name, a.service) AS servicio
+          FROM appointments a LEFT JOIN services s ON s.id = a.service
+          WHERE substr(a.client_phone, -10) = ? AND a.appointment_date >= ?
+          ORDER BY a.appointment_date, a.appointment_time`,
+    args: [String(phone).slice(-10), todayAR()],
+  });
+  return result.rows;
+}
+
+async function findOwnAppointment(db, phone, fecha, hora) {
+  const result = await db.execute({
+    sql: `SELECT a.appointment_date, a.appointment_time, COALESCE(s.name, a.service) AS servicio
+          FROM appointments a LEFT JOIN services s ON s.id = a.service
+          WHERE substr(a.client_phone, -10) = ? AND a.appointment_date = ? AND a.appointment_time = ?`,
+    args: [String(phone).slice(-10), String(fecha || ''), String(hora || '')],
+  });
+  return result.rows[0] || null;
+}
+
+const STATUS_LABEL = { confirmed: 'confirmado', pending_deposit: 'pendiente de seña', pending_payment: 'pendiente de pago' };
 
 /** Horas que faltan para un turno (fecha y hora de Argentina, UTC-3). */
 function hoursUntil(dateStr, timeStr) {
@@ -81,7 +105,12 @@ function trustNote(trustStatus) {
   return 'Esta clienta es de confianza: sus reservas se confirman al instante.';
 }
 
-async function buildSystemPrompt(db, { knownName, trustStatus }) {
+async function buildSystemPrompt(db, { knownName, trustStatus, phone }) {
+  const upcoming = phone ? await getUpcomingAppointments(db, phone) : [];
+  const upcomingText = upcoming.length
+    ? upcoming.map(a => `- ${DAY_NAMES[new Date(`${a.appointment_date}T12:00:00`).getDay()]} ${a.appointment_date} a las ${a.appointment_time}: ${a.servicio} (${STATUS_LABEL[a.status] || a.status})`).join('\n')
+    : '- No tiene turnos reservados.';
+
   const services = await db.execute('SELECT id, category, name, price, duration FROM services ORDER BY category, price');
   const servicesText = services.rows
     .map(s => `- id "${s.id}": ${s.name} (${s.category}) — $${s.price}, ${s.duration}`)
@@ -105,6 +134,7 @@ Reglas:
 - Nunca inventes horarios: solo ofrecé los que devuelve ver_horarios.
 - Nunca confirmes un turno si reservar_turno no devolvió éxito. Si devuelve error, explicalo simple y ofrecé otra opción.
 - Si la reserva queda pendiente de seña o pago, explicale qué tiene que hacer con los datos que devuelve la herramienta (link o alias).
+- Dirección del estudio: *${STUDIO_ADDRESS}*. Si la clienta pide la dirección o cómo llegar, pasásela junto con este link de Google Maps: ${STUDIO_MAPS_URL}
 - Las clientas también pueden reservar solas en https://${SITE_HOST} y ver sus turnos en https://${SITE_HOST}/mis-turnos.
 - No hables de temas que no tengan que ver con el estudio.
 - Escribí como una persona: variá cómo arrancás los mensajes (no siempre el mismo saludo), no repitas frases hechas y no saludes de nuevo si ya vienen charlando.
@@ -119,7 +149,12 @@ Calendario (fecha de hoy en Argentina y próximos días):
 ${upcomingCalendar()}
 
 Esta clienta está registrada como "${knownName}": usá ese nombre, no se lo pidas.
-${trustNote(trustStatus)}${custom}`;
+${trustNote(trustStatus)}
+
+Turnos que esta clienta YA tiene reservados (datos reales del sistema, actualizados ahora):
+${upcomingText}
+- Si la clienta confirma, agradece o pregunta por uno de estos turnos ("confirmo el de mañana", "perfecto gracias", "¿a qué hora voy?"), respondé con estos datos: NO lo vuelvas a reservar.
+- Solo usá reservar_turno para un turno NUEVO que no esté en esta lista.${custom}`;
 }
 
 const TOOLS = [
@@ -202,6 +237,20 @@ async function runTool(name, args, ctx) {
     if (ctx.client.trust_status === 'blocked') {
       return { error: 'La clienta está bloqueada: no puede reservar por acá. Derivar a Mili.', bloqueada: true };
     }
+    // Si ese turno YA es de esta clienta (ej. dice "perfecto, gracias" después de reservar y
+    // el modelo intenta reservar de nuevo), no se duplica: se le recuerda que ya está hecho.
+    const own = await findOwnAppointment(db, ctx.phone, args.fecha, args.hora);
+    if (own) {
+      return {
+        ok: true,
+        ya_estaba_reservado: true,
+        fecha: own.appointment_date,
+        hora: own.appointment_time,
+        servicio: own.servicio,
+        nota: 'Este turno YA es de esta clienta y ya está reservado. NO lo vuelvas a reservar ni ofrezcas otro: solo confirmale que lo tiene.',
+      };
+    }
+
     // Se reserva con el teléfono y el nombre tal cual están registrados, así la web
     // aplica las mismas reglas de confianza (restringida → seña + aprobación de Mili).
     const req = new Request(`https://${SITE_HOST}/api/appointments`, {
@@ -217,7 +266,12 @@ async function runTool(name, args, ctx) {
     });
     const res = await createAppointment(req);
     const data = await res.json();
-    if (!res.ok) return { error: data.error || 'No se pudo reservar', bloqueada: Boolean(data.blocked) };
+    if (!res.ok) {
+      if (res.status === 409) {
+        return { error: 'Ese horario lo tiene reservado OTRA clienta. Ofrecé otro horario libre (consultá ver_horarios).' };
+      }
+      return { error: data.error || 'No se pudo reservar', bloqueada: Boolean(data.blocked) };
+    }
     return {
       ok: true,
       estado: data.appointment.status,
@@ -332,7 +386,7 @@ export async function generateReply({ chat, client, pushName, pauseHours, extraC
 
   const history = await getHistory(chat);
   const messages = [
-    { role: 'system', content: await buildSystemPrompt(db, { knownName: client.name, trustStatus: client.trust_status }) },
+    { role: 'system', content: await buildSystemPrompt(db, { knownName: client.name, trustStatus: client.trust_status, phone: client.phone }) },
     ...(extraContext ? [{ role: 'system', content: extraContext }] : []),
     ...history,
   ];
