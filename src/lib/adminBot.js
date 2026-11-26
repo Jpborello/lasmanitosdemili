@@ -4,7 +4,8 @@
  * mensajes salen de su propio celular hacia su propio número.
  *
  * Puede: buscar clientas, ver la agenda de un día, borrar turnos, cambiar el estado de una
- * clienta (confiable / restringida / bloqueada) y prender o apagar el bot en un chat.
+ * clienta (confiable / restringida / bloqueada), prender o apagar el bot en un chat y
+ * prender o apagar el turno de las 18:00 (en general o en un día puntual).
  * Para borrar o cambiar estados, primero confirma los datos con Mili.
  */
 import { getDb } from './db';
@@ -82,6 +83,26 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'turno_18_general',
+      description: 'Prende o apaga el turno de las 18:00 de lunes a viernes en general (el mismo interruptor del panel admin). Los sábados no se ven afectados.',
+      parameters: { type: 'object', properties: { activo: { type: 'boolean' } }, required: ['activo'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'turno_18_dia',
+      description: 'Habilita o deshabilita el turno de las 18:00 en un día puntual (lunes a sábado), sin tocar el resto de los días.',
+      parameters: {
+        type: 'object',
+        properties: { fecha: { type: 'string', description: 'YYYY-MM-DD' }, activo: { type: 'boolean' } },
+        required: ['fecha', 'activo'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'bot_en_chat',
       description: 'Prende o apaga el bot automático en el chat de una clienta (apagado = el bot no le contesta más).',
       parameters: {
@@ -92,6 +113,28 @@ const TOOLS = [
     },
   },
 ];
+
+// --- Settings del turno de las 18 (mismas claves que usa el panel admin) ---
+const splitList = v => String(v || '').split(',').map(s => s.trim()).filter(Boolean);
+
+async function getSetting(db, key, fallback = '') {
+  const r = await db.execute({ sql: 'SELECT value FROM settings WHERE key = ?', args: [key] });
+  return r.rows[0]?.value ?? fallback;
+}
+
+async function setSetting(db, key, value) {
+  await db.execute({ sql: 'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', args: [key, value] });
+}
+
+async function bookingsAt18(db, fromDate, toDate) {
+  const r = await db.execute({
+    sql: `SELECT appointment_date AS fecha, client_name AS clienta FROM appointments
+          WHERE appointment_time = '18:00' AND appointment_date >= ? AND appointment_date <= ?
+          ORDER BY appointment_date`,
+    args: [fromDate, toDate],
+  });
+  return r.rows;
+}
 
 async function upcomingFor(db, phone) {
   const r = await db.execute({
@@ -150,6 +193,44 @@ async function runAdminTool(name, args) {
     return { ok: true, clienta: r.rows[0].name, nuevo_estado: args.estado };
   }
 
+  if (name === 'turno_18_general') {
+    await setSetting(db, 'enable_18_weekday', args.activo ? 'true' : 'false');
+    const result = { ok: true, turno_18_lunes_a_viernes: args.activo ? 'activo' : 'apagado' };
+    if (!args.activo) {
+      // Los turnos ya reservados a las 18 no se borran: se le avisa a Mili cuáles quedan
+      const inDays = new Date(Date.now() + 60 * 24 * 3600 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
+      const weekdays = (await bookingsAt18(db, todayAR(), inDays)).filter(b => {
+        const d = new Date(`${b.fecha}T12:00:00`).getDay();
+        return d >= 1 && d <= 5;
+      });
+      result.turnos_ya_reservados_a_las_18 = weekdays;
+      result.nota = 'Los turnos ya reservados a las 18 siguen en pie. Los días que Mili haya habilitado puntualmente siguen habilitados.';
+    }
+    return result;
+  }
+
+  if (name === 'turno_18_dia') {
+    const fecha = String(args.fecha || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { error: 'Fecha inválida' };
+    if (new Date(`${fecha}T12:00:00`).getDay() === 0) {
+      return { error: 'Los domingos se manejan aparte (domingos especiales) desde el panel admin.' };
+    }
+    const slot = `${fecha}_18:00`;
+    let extra = splitList(await getSetting(db, 'extra_slots')).filter(s => s !== slot);
+    let blocked = splitList(await getSetting(db, 'blocked_slots')).filter(s => s !== slot);
+    if (args.activo) extra.push(slot);
+    else blocked.push(slot);
+    await setSetting(db, 'extra_slots', extra.join(','));
+    await setSetting(db, 'blocked_slots', blocked.join(','));
+    const existing = await bookingsAt18(db, fecha, fecha);
+    return {
+      ok: true,
+      fecha,
+      turno_18: args.activo ? 'habilitado' : 'deshabilitado',
+      ...(existing.length && !args.activo ? { ojo: `Ya hay un turno reservado ese día a las 18 (${existing[0].clienta}); no se borra.` } : {}),
+    };
+  }
+
   if (name === 'bot_en_chat') {
     if (args.activo) await resumeChat(chatOf(args.telefono));
     else await pauseChat(chatOf(args.telefono), 24 * 365);
@@ -159,8 +240,8 @@ async function runAdminTool(name, args) {
   return { error: `Herramienta desconocida: ${name}` };
 }
 
-function systemPrompt() {
-  return `Sos el asistente personal de Mili (Samanta, "Sami"), dueña del estudio de uñas *Las Manitos de Mili* en Rosario. Ella te escribe por WhatsApp para pedirte cosas del sistema de turnos.
+function systemPrompt({ turno18Activo }) {
+  return `Sos Strella, la asistente personal de Mili (Samanta, "Sami"), dueña del estudio de uñas *Las Manitos de Mili* en Rosario. Ella te escribe por WhatsApp para pedirte cosas del sistema de turnos.
 
 Respondé SIEMPRE en español rioplatense, corto y claro, como un mensaje de WhatsApp. Nunca escribas en inglés ni muestres lo que pensás.
 
@@ -170,6 +251,9 @@ Podés:
 - Borrar turnos (borrar_turno).
 - Bloquear, restringir o volver a confiable a una clienta (cambiar_estado_clienta).
 - Prender o apagar el bot en el chat de una clienta (bot_en_chat).
+- Prender o apagar el turno de las 18:00 de lunes a viernes en general (turno_18_general), o habilitarlo / deshabilitarlo en un día puntual (turno_18_dia). Si dice "un día", "mañana", "el jueves", etc., es puntual; si dice "en general", "de ahora en más" o "todos los días", es general. Si no queda claro, preguntale.
+
+Estado actual del turno de las 18 de lunes a viernes: ${turno18Activo ? 'ACTIVO' : 'APAGADO'}.
 
 Reglas:
 - Antes de BORRAR un turno o CAMBIAR el estado de una clienta: buscá los datos, mostrale a Mili exactamente qué vas a hacer (nombre, teléfono, fecha y hora) y esperá que diga "sí". Recién ahí ejecutá. Si hay varias coincidencias, preguntale cuál.
@@ -184,8 +268,10 @@ ${calendar()}`;
 /** Responde una orden de Mili. El mensaje de ella ya tiene que estar guardado en el historial. */
 export async function generateAdminReply() {
   const history = await getHistory(ADMIN_CHAT, 20);
+  const db = await getDb();
+  const turno18Activo = (await getSetting(db, 'enable_18_weekday', 'true')) === 'true';
   const text = await runConversation({
-    messages: [{ role: 'system', content: systemPrompt() }, ...history],
+    messages: [{ role: 'system', content: systemPrompt({ turno18Activo }) }, ...history],
     tools: TOOLS,
     runToolFn: runAdminTool,
     toolErrorText: 'Falló la operación',
