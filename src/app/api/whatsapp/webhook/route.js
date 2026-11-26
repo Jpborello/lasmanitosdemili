@@ -63,7 +63,9 @@ function isAuthorized(request, payload) {
 
 // --- Asistente de Mili (chat consigo misma) ---
 const OWNER_LAST10 = String(process.env.MILI_PHONE_NUMBER || MILI_WHATSAPP_NUMBER).replace(/\D/g, '').slice(-10);
-const ADMIN_PREFIX = /^\s*(bot|asistente)\b[\s,.:!-]*/i;
+// Mili la llama por su nombre: "Strella, ..." (también "Estrella", que el corrector suele
+// poner solo, y "Hola Strella ..."). "Bot" sigue funcionando por las dudas.
+const ADMIN_PREFIX = /^\s*(?:(?:hola|che|buen d[ií]a|buenas)[\s,!]+)?(?:e?strella|bot|asistente)\b[\s,.:!¡?¿-]*/i;
 // Después de una orden, durante estos minutos acepta respuestas sin "Bot" (ej. "sí, borralo")
 const ADMIN_FOLLOWUP_MS = 10 * 60 * 1000;
 
