@@ -105,6 +105,13 @@ export async function getHistory(chat, limit = 20) {
   return result.rows.reverse().map(r => ({ role: r.role, content: r.content }));
 }
 
+/** Fecha del último mensaje (de cualquiera de los dos lados) guardado en un chat. */
+export async function getLastMessageAt(chat) {
+  const db = await getBotDb();
+  const result = await db.execute({ sql: 'SELECT MAX(created_at) AS at FROM bot_messages WHERE chat = ?', args: [chat] });
+  return result.rows[0]?.at || null;
+}
+
 /** ¿Este es el último mensaje que mandó la clienta? (si mandó otro después, responde ese) */
 export async function isLatestUserMessage(chat, waId) {
   const db = await getBotDb();

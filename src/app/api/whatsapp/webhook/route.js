@@ -1,11 +1,13 @@
 import { NextResponse, after } from 'next/server';
 import { findRegisteredClient } from '@/lib/bot';
+import { generateAdminReply, ADMIN_CHAT } from '@/lib/adminBot';
+import { MILI_WHATSAPP_NUMBER } from '@/lib/constants';
 import { replyToChat } from '@/lib/botReply';
 import { sendEvolutionText, markEvolutionRead, hasRecentManualReply, resolvePhoneFromLid } from '@/lib/whatsapp';
 import { sleep, randomBetween, pickOne, isBookingIntent, isQuietHours, isAutomatedText } from '@/lib/humanize';
 import {
   saveIncoming, saveAssistant, wasSentBySystem, pauseChat, resumeChat, isChatPaused, isChatTurnedOff,
-  getResumedAt, isLatestUserMessage, sentAudioNoticeRecently, setHealth,
+  getResumedAt, isLatestUserMessage, sentAudioNoticeRecently, setHealth, getLastMessageAt, getHistory,
 } from '@/lib/botStore';
 
 // El bot llama a OpenRouter (a veces varias veces por las herramientas): damos margen.
@@ -59,6 +61,41 @@ function isAuthorized(request, payload) {
   return false;
 }
 
+// --- Asistente de Mili (chat consigo misma) ---
+const OWNER_LAST10 = String(process.env.MILI_PHONE_NUMBER || MILI_WHATSAPP_NUMBER).replace(/\D/g, '').slice(-10);
+const ADMIN_PREFIX = /^\s*(bot|asistente)\b[\s,.:!-]*/i;
+// Después de una orden, durante estos minutos acepta respuestas sin "Bot" (ej. "sí, borralo")
+const ADMIN_FOLLOWUP_MS = 10 * 60 * 1000;
+
+function isOwnerChat(phone) {
+  return Boolean(phone) && String(phone).replace(/\D/g, '').slice(-10) === OWNER_LAST10;
+}
+
+async function handleAdminMessage({ key, text, ownerPhone }) {
+  try {
+    // Sus propias respuestas y los avisos automáticos también caen en este chat: se ignoran
+    await sleep(3000);
+    if (!text || (await wasSentBySystem(key.id)) || isAutomatedText(text)) return;
+    // Respaldo: si es igual a la última respuesta del asistente, es su propio eco
+    const lastReply = (await getHistory(ADMIN_CHAT, 4)).filter(m => m.role === 'assistant').pop();
+    if (lastReply && lastReply.content.trim() === text.trim()) return;
+
+    const hasPrefix = ADMIN_PREFIX.test(text);
+    const lastAdminAt = await getLastMessageAt(ADMIN_CHAT);
+    const inFollowUp = lastAdminAt && Date.now() - new Date(lastAdminAt).getTime() < ADMIN_FOLLOWUP_MS;
+    if (!hasPrefix && !inFollowUp) return; // es una nota de Mili, no una orden
+
+    const order = hasPrefix ? text.replace(ADMIN_PREFIX, '').trim() || text : text;
+    const isNew = await saveIncoming(ADMIN_CHAT, order, key.id);
+    if (!isNew) return;
+
+    const reply = await generateAdminReply();
+    if (reply) await sendEvolutionText(ownerPhone, reply, { typingMs: randomBetween(1000, 2500) });
+  } catch (err) {
+    console.error('Error en el asistente de Mili:', err);
+  }
+}
+
 export async function POST(request) {
   let payload;
   try {
@@ -105,6 +142,12 @@ export async function POST(request) {
     const chat = phone ? `${phone}@s.whatsapp.net` : rawJid;
 
     const text = extractText(data.message);
+
+    // Mili escribiéndose a sí misma: son órdenes para su asistente ("Bot, bloqueá a ...")
+    if (key.fromMe && isOwnerChat(phone)) {
+      after(() => handleAdminMessage({ key, text, ownerPhone: phone }));
+      continue;
+    }
 
     // Mensaje enviado desde el WhatsApp de Mili
     if (key.fromMe) {

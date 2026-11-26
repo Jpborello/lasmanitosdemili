@@ -35,7 +35,7 @@ export function isQuietHours(date = new Date()) {
  */
 const AUTOMATED_PREFIXES = [
   '💖 *¡Hola', '💅 *¡NUEVO TURNO', '⚠️ *SEÑA PENDIENTE', '❌ *TURNO CANCELADO',
-  '🙋‍♀️ *Una clienta', '🌸 *¡Hola', '✨ *Hola', '💅 *¡Hola',
+  '🙋‍♀️ *Una clienta', '🌸 *¡Hola', '✨ *Hola', '💅 *¡Hola', '⚠️ *Bot de Las Manitos',
 ];
 
 export function isAutomatedText(text) {
