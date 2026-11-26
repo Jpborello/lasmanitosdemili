@@ -4,14 +4,16 @@
  * mensajes salen de su propio celular hacia su propio número.
  *
  * Puede: buscar clientas, ver la agenda de un día, borrar turnos, cambiar el estado de una
- * clienta (confiable / restringida / bloqueada), prender o apagar el bot en un chat y
- * prender o apagar el turno de las 18:00 (en general o en un día puntual).
+ * clienta (confiable / restringida / bloqueada), prender o apagar el bot en un chat,
+ * habilitar o bloquear cualquier horario puntual, bloquear días enteros o rangos, prender
+ * o apagar el turno de las 18 en general y consultar qué días quedan libres o completos.
  * Para borrar o cambiar estados, primero confirma los datos con Mili.
  */
 import { getDb } from './db';
 import { runConversation } from './bot';
 import { todayAR } from './turno20';
 import { getHistory, saveAssistant, pauseChat, resumeChat } from './botStore';
+import { getAvailableTimes, getBookingSettings } from './availability';
 
 const ADMIN_CHAT = 'admin:mili';
 const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -91,12 +93,44 @@ const TOOLS = [
   {
     type: 'function',
     function: {
-      name: 'turno_18_dia',
-      description: 'Habilita o deshabilita el turno de las 18:00 en un día puntual (lunes a sábado), sin tocar el resto de los días.',
+      name: 'horario_puntual',
+      description: 'Habilita o bloquea UN horario en UNA fecha (cualquier hora, ej. 12:00, 13:00, 18:00, 20:00; también domingos). habilitado=true lo agrega aunque no sea del horario habitual; habilitado=false lo bloquea.',
       parameters: {
         type: 'object',
-        properties: { fecha: { type: 'string', description: 'YYYY-MM-DD' }, activo: { type: 'boolean' } },
-        required: ['fecha', 'activo'],
+        properties: {
+          fecha: { type: 'string', description: 'YYYY-MM-DD' },
+          hora: { type: 'string', description: 'HH:MM en 24 hs (ej. "12:00", "13:00")' },
+          habilitado: { type: 'boolean' },
+        },
+        required: ['fecha', 'hora', 'habilitado'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'dias_completos',
+      description: 'Bloquea o desbloquea días enteros (sin ningún turno). Para un solo día usá desde = hasta; para una semana o varios días, el rango. Devuelve los turnos ya reservados en esos días.',
+      parameters: {
+        type: 'object',
+        properties: {
+          desde: { type: 'string', description: 'YYYY-MM-DD' },
+          hasta: { type: 'string', description: 'YYYY-MM-DD (igual a desde si es un solo día)' },
+          bloqueado: { type: 'boolean' },
+        },
+        required: ['desde', 'hasta', 'bloqueado'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'consultar_agenda',
+      description: 'Resumen de un rango de días: para cada día, turnos reservados, horarios libres y si está bloqueado o cerrado. Sirve para "¿qué días tengo sin turnos?", "¿qué me queda libre la semana que viene?", "¿qué días están completos?".',
+      parameters: {
+        type: 'object',
+        properties: { desde: { type: 'string', description: 'YYYY-MM-DD' }, hasta: { type: 'string', description: 'YYYY-MM-DD (máximo 31 días)' } },
+        required: ['desde', 'hasta'],
       },
     },
   },
@@ -132,6 +166,47 @@ async function bookingsAt18(db, fromDate, toDate) {
           WHERE appointment_time = '18:00' AND appointment_date >= ? AND appointment_date <= ?
           ORDER BY appointment_date`,
     args: [fromDate, toDate],
+  });
+  return r.rows;
+}
+
+const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
+
+/** "12" / "12hs" / "12:00" / "9:30" -> "12:00" / "09:30"; inválido -> null */
+function normalizeTime(value) {
+  const m = String(value || '').trim().match(/^(\d{1,2})(?::|\.|h)?(\d{2})?\s*(?:hs?)?$/i);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2] || 0);
+  if (h > 23 || min > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+function dateRange(from, to) {
+  const out = [];
+  const d = new Date(`${from}T12:00:00`);
+  const end = new Date(`${to}T12:00:00`);
+  while (d <= end && out.length < 400) {
+    out.push(d.toLocaleDateString('en-CA'));
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
+
+async function bookingsBetween(db, from, to) {
+  const r = await db.execute({
+    sql: `SELECT appointment_date AS fecha, appointment_time AS hora, client_name AS clienta, client_phone AS telefono
+          FROM appointments WHERE appointment_date >= ? AND appointment_date <= ?
+          ORDER BY appointment_date, appointment_time`,
+    args: [from, to],
+  });
+  return r.rows;
+}
+
+async function bookingsOn(db, fecha, hora) {
+  const r = await db.execute({
+    sql: 'SELECT client_name AS clienta, client_phone AS telefono FROM appointments WHERE appointment_date = ? AND appointment_time = ?',
+    args: [fecha, hora],
   });
   return r.rows;
 }
@@ -209,25 +284,89 @@ async function runAdminTool(name, args) {
     return result;
   }
 
-  if (name === 'turno_18_dia') {
+  if (name === 'horario_puntual') {
     const fecha = String(args.fecha || '');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { error: 'Fecha inválida' };
-    if (new Date(`${fecha}T12:00:00`).getDay() === 0) {
-      return { error: 'Los domingos se manejan aparte (domingos especiales) desde el panel admin.' };
+    const hora = normalizeTime(args.hora);
+    if (!isDate(fecha)) return { error: 'Fecha inválida (usar YYYY-MM-DD)' };
+    if (!hora) return { error: 'Hora inválida (usar HH:MM, ej. 12:00)' };
+    if (fecha < todayAR()) return { error: 'Esa fecha ya pasó' };
+
+    const slot = `${fecha}_${hora}`;
+    const isSunday = new Date(`${fecha}T12:00:00`).getDay() === 0;
+    const extra = splitList(await getSetting(db, 'extra_slots')).filter(s => s !== slot);
+    const blocked = splitList(await getSetting(db, 'blocked_slots')).filter(s => s !== slot);
+    const sunday = splitList(await getSetting(db, 'sunday_slots')).filter(s => s !== slot);
+
+    if (args.habilitado) {
+      // Los domingos están cerrados por defecto: se habilitan como "domingo especial"
+      if (isSunday) sunday.push(slot);
+      else extra.push(slot);
+      // Si el día entero estaba bloqueado, habilitar un horario no alcanza: se avisa
+    } else {
+      blocked.push(slot);
     }
-    const slot = `${fecha}_18:00`;
-    let extra = splitList(await getSetting(db, 'extra_slots')).filter(s => s !== slot);
-    let blocked = splitList(await getSetting(db, 'blocked_slots')).filter(s => s !== slot);
-    if (args.activo) extra.push(slot);
-    else blocked.push(slot);
     await setSetting(db, 'extra_slots', extra.join(','));
     await setSetting(db, 'blocked_slots', blocked.join(','));
-    const existing = await bookingsAt18(db, fecha, fecha);
+    await setSetting(db, 'sunday_slots', sunday.join(','));
+
+    const dayBlocked = splitList(await getSetting(db, 'blocked_dates')).includes(fecha);
+    const booked = await bookingsOn(db, fecha, hora);
     return {
       ok: true,
       fecha,
-      turno_18: args.activo ? 'habilitado' : 'deshabilitado',
-      ...(existing.length && !args.activo ? { ojo: `Ya hay un turno reservado ese día a las 18 (${existing[0].clienta}); no se borra.` } : {}),
+      dia: DAY_NAMES[new Date(`${fecha}T12:00:00`).getDay()],
+      hora,
+      estado: args.habilitado ? 'habilitado' : 'bloqueado',
+      ...(args.habilitado && dayBlocked ? { ojo: 'Ese día entero está bloqueado: el horario no se va a ver hasta que se desbloquee el día.' } : {}),
+      ...(!args.habilitado && booked.length ? { ojo: `Ya hay un turno reservado en ese horario (${booked[0].clienta}, ${booked[0].telefono}); no se borra solo.` } : {}),
+    };
+  }
+
+  if (name === 'dias_completos') {
+    const desde = String(args.desde || '');
+    const hasta = String(args.hasta || desde);
+    if (!isDate(desde) || !isDate(hasta) || hasta < desde) return { error: 'Rango de fechas inválido' };
+    const dates = dateRange(desde, hasta);
+    if (dates.length > 62) return { error: 'Máximo 62 días por vez' };
+
+    let blockedDates = splitList(await getSetting(db, 'blocked_dates')).filter(d => !dates.includes(d));
+    if (args.bloqueado) blockedDates = blockedDates.concat(dates);
+    await setSetting(db, 'blocked_dates', [...new Set(blockedDates)].sort().join(','));
+
+    const booked = await bookingsBetween(db, desde, hasta);
+    return {
+      ok: true,
+      dias: dates.map(d => `${DAY_NAMES[new Date(`${d}T12:00:00`).getDay()]} ${d}`),
+      estado: args.bloqueado ? 'bloqueados (sin turnos nuevos)' : 'desbloqueados',
+      turnos_ya_reservados: booked,
+      ...(args.bloqueado && booked.length ? { ojo: 'Estos turnos ya reservados siguen en pie: si querés, los borro o le escribís a cada clienta.' } : {}),
+    };
+  }
+
+  if (name === 'consultar_agenda') {
+    const desde = String(args.desde || todayAR());
+    const hasta = String(args.hasta || desde);
+    if (!isDate(desde) || !isDate(hasta) || hasta < desde) return { error: 'Rango de fechas inválido' };
+    const dates = dateRange(desde < todayAR() ? todayAR() : desde, hasta).slice(0, 31);
+    const settings = await getBookingSettings(db);
+    const dias = [];
+    for (const fecha of dates) {
+      const booked = await bookingsBetween(db, fecha, fecha);
+      const { available, reason } = await getAvailableTimes(db, fecha, settings);
+      dias.push({
+        dia: `${DAY_NAMES[new Date(`${fecha}T12:00:00`).getDay()]} ${fecha}`,
+        turnos_reservados: booked.map(b => `${b.hora} ${b.clienta}`),
+        horarios_libres: available,
+        ...(available.length === 0 && reason ? { motivo: reason } : {}),
+      });
+    }
+    return {
+      dias,
+      resumen: {
+        sin_ningun_turno_reservado: dias.filter(d => d.turnos_reservados.length === 0 && d.horarios_libres.length > 0).map(d => d.dia),
+        completos: dias.filter(d => d.turnos_reservados.length > 0 && d.horarios_libres.length === 0).map(d => d.dia),
+        cerrados_o_bloqueados: dias.filter(d => d.turnos_reservados.length === 0 && d.horarios_libres.length === 0).map(d => d.dia),
+      },
     };
   }
 
@@ -251,9 +390,16 @@ Podés:
 - Borrar turnos (borrar_turno).
 - Bloquear, restringir o volver a confiable a una clienta (cambiar_estado_clienta).
 - Prender o apagar el bot en el chat de una clienta (bot_en_chat).
-- Prender o apagar el turno de las 18:00 de lunes a viernes en general (turno_18_general), o habilitarlo / deshabilitarlo en un día puntual (turno_18_dia). Si dice "un día", "mañana", "el jueves", etc., es puntual; si dice "en general", "de ahora en más" o "todos los días", es general. Si no queda claro, preguntale.
+- Manejar la agenda:
+  * Habilitar o bloquear UN horario en una fecha, de cualquier hora (horario_puntual). Ej: "habilitá las 12 para mañana", "abrime las 13 el sábado", "bloqueá las 16 del jueves". Si dice "las 12 del mediodía" es 12:00; "las 6 de la tarde" es 18:00.
+  * Bloquear o desbloquear días enteros o rangos (dias_completos). Ej: "bloqueá el día 7", "bloqueá toda la semana que viene", "del 22 al 31 no trabajo". Después de bloquear, contale SIEMPRE si había turnos ya reservados en esos días (con nombre y teléfono), porque no se borran solos, y ofrecele borrarlos.
+  * Prender o apagar el turno de las 18 de lunes a viernes EN GENERAL (turno_18_general). Para un solo día usá horario_puntual con 18:00.
+  * Consultar la agenda de varios días (consultar_agenda): "¿qué días tengo sin turnos?", "¿qué me queda libre la semana que viene?", "¿qué días están completos?". Si no dice desde cuándo, usá desde hoy hasta 14 días adelante. Respondé con un resumen corto y claro, no la lista entera si es muy larga.
+  * Ver la agenda de un solo día con nombres y teléfonos (ver_agenda).
+- Interpretá las fechas con el calendario de abajo. Si dice solo un número de día ("el 7", "mañana 6"), es el próximo día con ese número; si el nombre del día que dice no coincide con la fecha (ej. "jueves 6" pero el 6 es viernes), preguntale antes de hacer nada.
 
 Estado actual del turno de las 18 de lunes a viernes: ${turno18Activo ? 'ACTIVO' : 'APAGADO'}.
+Horario habitual: lunes a viernes 08:00, 10:00, 14:30, 16:00 (y 18:00 si está activo); sábados 08:00, 10:00, 12:00, 14:30, 16:00 y 18:00; domingos cerrado.
 
 Reglas:
 - Antes de BORRAR un turno o CAMBIAR el estado de una clienta: buscá los datos, mostrale a Mili exactamente qué vas a hacer (nombre, teléfono, fecha y hora) y esperá que diga "sí". Recién ahí ejecutá. Si hay varias coincidencias, preguntale cuál.
@@ -262,7 +408,7 @@ Reglas:
 - Si te pide algo que no podés hacer, decíselo y sugerile hacerlo desde el panel admin de la web.
 
 Calendario (hoy y próximos días):
-${calendar()}`;
+${calendar(60)}`;
 }
 
 /** Responde una orden de Mili. El mensaje de ella ya tiene que estar guardado en el historial. */
